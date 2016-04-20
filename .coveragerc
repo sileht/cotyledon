@@ -1,0 +1,7 @@
+[run]
+branch = True
+source = cotyledon
+omit = cotyledon/openstack/*
+
+[report]
+ignore_errors = True
