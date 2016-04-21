@@ -39,6 +39,13 @@ _ServiceConfig = collections.namedtuple("ServiceConfig", ["service",
                                                           "workers"])
 
 
+def _spawn(target):
+    t = threading.Thread(target=target)
+    t.daemon = True
+    t.start()
+    return t
+
+
 @contextlib.contextmanager
 def _catch_exception_and_exit():
     try:
@@ -138,11 +145,7 @@ class Service(object):
             try:
                 self.reload()
             except ServiceMethodNotImplementedError:
-                try:
-                    self.terminate()
-                except ServiceMethodNotImplementedError:
-                    pass
-        os._exit(0)
+                self._clean_exit()
 
     def _clean_exit(self, *args, **kwargs):
         LOG.info('Caught SIGTERM signal, '
@@ -216,6 +219,12 @@ class ServiceManager(object):
         self._services = []
         self._forktimes = []
         self._current_process = None
+
+        # Try to create a session id if possible
+        try:
+            os.setsid()
+        except OSError:
+            pass
 
         self.readpipe, self.writepipe = os.pipe()
 
@@ -360,16 +369,24 @@ class ServiceManager(object):
         # Close write to ensure only parent has it open
         os.close(self.writepipe)
 
+        _spawn(self._watch_parent_process)
+
         # Reseed random number generator
         random.seed()
 
         # Create and run a new service
         with _catch_exception_and_exit():
-            p = config.service(worker_id)
-            t = threading.Thread(target=p._run)
-            t.daemon = True
-            t.start()
+            self._current_process = config.service(worker_id)
+            _spawn(self._current_process._run)
 
+        # Wait forever
+        # NOTE(sileht): we cannot use threading.Event().wait() or
+        # threading.Thread().join() because of
+        # https://bugs.python.org/issue5315
+        while True:
+            time.sleep(1000000000)
+
+    def _watch_parent_process(self):
         # This will block until the write end is closed when the parent
         # dies unexpectedly
         try:
@@ -378,4 +395,7 @@ class ServiceManager(object):
             pass
 
         LOG.info('Parent process has died unexpectedly, exiting')
-        p._clean_exit()
+        if self._current_process is not None:
+            self._current_process._clean_exit()
+        else:
+            os._exit(0)

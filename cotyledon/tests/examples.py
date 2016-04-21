@@ -11,20 +11,42 @@
 # under the License.
 
 import logging
+import sys
+import threading
 
 import cotyledon
 
 LOG = logging.getLogger(__name__)
 
 
-class TestService(cotyledon.Service):
-    def __init__(self):
-        pass
+class FullService(cotyledon.Service):
+    name = "heavy"
+
+    def __init__(self, worker_id):
+        super(FullService, self).__init__(worker_id)
+        self._shutdown = threading.Event()
+        LOG.error("%s init" % self.name)
+
+    def run(self):
+        LOG.error("%s run" % self.name)
+        self._shutdown.wait()
+
+    def terminate(self):
+        LOG.error("%s terminate" % self.name)
+        self._shutdown.set()
+        sys.exit(42)
+
+    def reload(self):
+        LOG.error("%s reload" % self.name)
+
+
+class LigthService(cotyledon.Service):
+    name = "light"
 
 
 def example_app():
     logging.basicConfig(level=logging.DEBUG)
     p = cotyledon.ServiceManager()
-    p.add_service("processing", TestService, 4)
-    p.add_service("reporting", TestService, 1)
+    p.add(FullService, 2)
+    p.add(LigthService)
     p.run()
