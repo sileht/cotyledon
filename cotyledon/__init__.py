@@ -326,8 +326,7 @@ class ServiceManager(object):
     def _fast_exit(self, signo, frame):
         signal.signal(signal.SIGINT, signal.SIG_IGN)
         signal.signal(signal.SIGALRM, signal.SIG_IGN)
-        LOG.info('Caught SIGINT signal, instantaneous exiting of '
-                 'master process')
+        LOG.info('Caught SIGINT signal, instantaneous exiting')
         os.killpg(0, signal.SIGINT)
         os._exit(1)
 

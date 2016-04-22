@@ -16,6 +16,7 @@ import os
 import re
 import signal
 import subprocess
+import time
 
 from cotyledon.tests import base
 
@@ -27,12 +28,20 @@ class TestCotyledon(base.TestCase):
         self.subp = subprocess.Popen(['cotyledon-example'],
                                      stdout=subprocess.PIPE,
                                      stderr=subprocess.STDOUT,
-                                     close_fds=True)
-        self.addCleanup(os.killpg, self.subp.pid, signal.SIGKILL)
+                                     close_fds=True,
+                                     preexec_fn=os.setsid)
 
-    def get_lines(self, number):
-        return [self.subp.stdout.readline().strip() for i in
-                range(number)]
+    def cleanUp(self):
+        super(TestCotyledon, self).cleanUp()
+        if self.subp.poll() is None:
+            self.subp.kill()
+
+    def get_lines(self, number=None):
+        if number is not None:
+            return [self.subp.stdout.readline().strip() for i in
+                    range(number)]
+        else:
+            return [l.strip() for l in self.subp.stdout.readlines()]
 
     @staticmethod
     def hide_pids(lines):
@@ -44,12 +53,11 @@ class TestCotyledon(base.TestCase):
     def get_pid(line):
         return int(line.split()[-1][1:-1])
 
-    def test_workflow(self):
-                # Check everything has started as expected
+    def assert_everything_has_started(self):
         lines = sorted(self.get_lines(7))
-        pid_heavy_1 = self.get_pid(lines[0])
-        pid_heavy_2 = self.get_pid(lines[1])
-        pid_light_1 = self.get_pid(lines[2])
+        self.pid_heavy_1 = self.get_pid(lines[0])
+        self.pid_heavy_2 = self.get_pid(lines[1])
+        self.pid_light_1 = self.get_pid(lines[2])
         lines = self.hide_pids(lines)
         self.assertEqual([b'DEBUG:cotyledon:Run service heavy(1) [XXXX]',
                           b'DEBUG:cotyledon:Run service heavy(2) [XXXX]',
@@ -60,15 +68,33 @@ class TestCotyledon(base.TestCase):
                           b'ERROR:cotyledon.tests.examples:heavy run'],
                          lines)
 
+        self.assert_everything_is_alive()
+
+    def assert_everything_is_alive(self):
+        os.kill(self.subp.pid, 0)
+        os.kill(self.pid_light_1, 0)
+        os.kill(self.pid_heavy_1, 0)
+        os.kill(self.pid_heavy_2, 0)
+
+    def assert_everything_is_dead(self, status=0):
+        self.assertEqual(status, self.subp.poll())
+        self.assertRaises(OSError, os.kill, self.subp.pid, 0)
+        self.assertRaises(OSError, os.kill, self.pid_heavy_2, 0)
+        self.assertRaises(OSError, os.kill, self.pid_heavy_1, 0)
+        self.assertRaises(OSError, os.kill, self.pid_light_1, 0)
+
+    def test_workflow(self):
+        self.assert_everything_has_started()
+
         # Ensure we just call reload method
-        os.kill(pid_heavy_1, signal.SIGHUP)
+        os.kill(self.pid_heavy_1, signal.SIGHUP)
         self.assertEqual(b"ERROR:cotyledon.tests.examples:heavy reload",
                          self.subp.stdout.readline().strip())
 
         # Ensure we restart because reload method is missing
-        os.kill(pid_light_1, signal.SIGHUP)
+        os.kill(self.pid_light_1, signal.SIGHUP)
         lines = self.get_lines(3)
-        pid_light_1 = self.get_pid(lines[-1])
+        self.pid_light_1 = self.get_pid(lines[-1])
         lines = self.hide_pids(lines)
         self.assertEqual([b'INFO:cotyledon:Caught SIGTERM signal, graceful '
                           b'exiting of service light(1) [XXXX]',
@@ -77,9 +103,9 @@ class TestCotyledon(base.TestCase):
                           ], lines)
 
         # Ensure we restart with terminate method exit code
-        os.kill(pid_heavy_1, signal.SIGTERM)
+        os.kill(self.pid_heavy_1, signal.SIGTERM)
         lines = self.get_lines(6)
-        pid_heavy_1 = self.get_pid(lines[-2])
+        self.pid_heavy_1 = self.get_pid(lines[-2])
         lines = self.hide_pids(lines)
         self.assertEqual([b'INFO:cotyledon:Caught SIGTERM signal, graceful '
                           b'exiting of service heavy(1) [XXXX]',
@@ -91,9 +117,9 @@ class TestCotyledon(base.TestCase):
                           ], lines)
 
         # Ensure we restart when no terminate method
-        os.kill(pid_light_1, signal.SIGTERM)
+        os.kill(self.pid_light_1, signal.SIGTERM)
         lines = self.get_lines(3)
-        pid_light_1 = self.get_pid(lines[-1])
+        self.pid_light_1 = self.get_pid(lines[-1])
         lines = self.hide_pids(lines)
         self.assertEqual([b'INFO:cotyledon:Caught SIGTERM signal, graceful '
                           b'exiting of service light(1) [XXXX]',
@@ -101,31 +127,64 @@ class TestCotyledon(base.TestCase):
                           b'DEBUG:cotyledon:Run service light(1) [XXXX]',
                           ], lines)
 
-        # Ensure heavy 2 is still alive
-        os.kill(pid_heavy_2, 0)
+        # Ensure everthing is still alive
+        os.kill(self.subp.pid, 0)
+        os.kill(self.pid_light_1, 0)
+        os.kill(self.pid_heavy_1, 0)
+        os.kill(self.pid_heavy_2, 0)
 
         # Kill master process
         os.kill(self.subp.pid, signal.SIGTERM)
-        lines = self.get_lines(10)
-        lines = self.hide_pids(lines)
+        self.subp.terminate()
+        lines = self.get_lines()
+        time.sleep(0.5)
+        lines = sorted(self.hide_pids(lines))
         self.assertEqual([
+            b'DEBUG:cotyledon:Killing services with signal SIGTERM',
+            b'DEBUG:cotyledon:Shutdown finish',
+            b'DEBUG:cotyledon:Waiting services to terminate',
+            b'ERROR:cotyledon.tests.examples:heavy terminate',
+            b'ERROR:cotyledon.tests.examples:heavy terminate',
             b'INFO:cotyledon:Caught SIGTERM signal, '
             b'graceful exiting of master process',
-            b'DEBUG:cotyledon:Killing services with signal SIGTERM',
-            b'DEBUG:cotyledon:Waiting services to terminate',
-            b'INFO:cotyledon:Caught SIGTERM signal, '
-            b'graceful exiting of service light(1) [XXXX]',
             b'INFO:cotyledon:Caught SIGTERM signal, '
             b'graceful exiting of service heavy(1) [XXXX]',
             b'INFO:cotyledon:Caught SIGTERM signal, '
             b'graceful exiting of service heavy(2) [XXXX]',
-            b'ERROR:cotyledon.tests.examples:heavy terminate',
-            b'ERROR:cotyledon.tests.examples:heavy terminate',
-            b'DEBUG:cotyledon:Shutdown finish',
-            b''
+            b'INFO:cotyledon:Caught SIGTERM signal, '
+            b'graceful exiting of service light(1) [XXXX]',
         ], lines)
 
-        # Ensure child are dead
-        self.assertRaises(OSError, os.kill, pid_heavy_2, 0)
-        self.assertRaises(OSError, os.kill, pid_heavy_1, 0)
-        self.assertRaises(OSError, os.kill, pid_light_1, 0)
+        self.assert_everything_is_dead()
+
+    def test_sigint(self):
+        self.assert_everything_has_started()
+        os.kill(self.subp.pid, signal.SIGINT)
+        time.sleep(0.5)
+        lines = sorted(self.get_lines())
+        lines = self.hide_pids(lines)
+        self.assertEqual([
+            b'INFO:cotyledon:Caught SIGINT signal, instantaneous exiting',
+        ], lines)
+        self.assert_everything_is_dead(1)
+
+    def test_sigkill(self):
+        self.assert_everything_has_started()
+        self.subp.kill()
+        time.sleep(0.5)
+        lines = sorted(self.get_lines())
+        lines = self.hide_pids(lines)
+        self.assertEqual([
+            b'ERROR:cotyledon.tests.examples:heavy terminate',
+            b'ERROR:cotyledon.tests.examples:heavy terminate',
+            b'INFO:cotyledon:Caught SIGTERM signal, graceful exiting of '
+            b'service heavy(1) [XXXX]',
+            b'INFO:cotyledon:Caught SIGTERM signal, graceful exiting of '
+            b'service heavy(2) [XXXX]',
+            b'INFO:cotyledon:Caught SIGTERM signal, graceful exiting of '
+            b'service light(1) [XXXX]',
+            b'INFO:cotyledon:Parent process has died unexpectedly, exiting',
+            b'INFO:cotyledon:Parent process has died unexpectedly, exiting',
+            b'INFO:cotyledon:Parent process has died unexpectedly, exiting',
+        ], lines)
+        self.assert_everything_is_dead(-9)
