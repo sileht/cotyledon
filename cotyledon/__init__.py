@@ -168,8 +168,8 @@ class ServiceManager(object):
 
     Each child process runs an instance of a :py:class:`Service`.
 
-    An application must create only one :py:class:ServiceManager` class
-    and use :py:meth:ServiceManager.run()` as main loop of the application.
+    An application must create only one :py:class:`ServiceManager` class and
+    use :py:meth:`ServiceManager.run()` as main loop of the application.
 
 
 
