@@ -116,7 +116,7 @@ class Service(object):
     def reload(self):
         """Reloading of the service
 
-        This method will be executed when the Service receive a SIGHUP.
+        This method will be executed when the Service receives a SIGHUP.
 
         If not implemented the process will just end with status 0 and
         :py:class:`ServiceRunner` will start a new fresh process for this
