@@ -108,7 +108,8 @@ class Service(object):
 
         If not implemented the process will just end with status 0.
 
-        To customize the exit code SystemExit exception can be used.
+        To customize the exit code, the :py:class:`SystemExit` exception can be
+        used.
 
         """
         raise ServiceMethodNotImplementedError
