@@ -80,7 +80,7 @@ class Service(object):
         """Create a new Service
 
         :param worker_id: the identifier of this service instance
-        :param worker_id: int
+        :type worker_id: int
         """
         if self.name is None:
             self.name = self.__class__.__name__
