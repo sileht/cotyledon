@@ -104,12 +104,12 @@ class Service(object):
     def terminate(self):
         """Gracefully shutdown the service
 
-        This method will be executed when the Service have to
-        shutdown cleanly.
+        This method will be executed when the Service has to shutdown cleanly.
 
         If not implemented the process will just end with status 0.
 
         To customize the exit code SystemExit exception can be used.
+
         """
         raise ServiceMethodNotImplementedError
 
