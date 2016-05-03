@@ -42,7 +42,7 @@ def _spawn(target):
 
 
 @contextlib.contextmanager
-def _catch_exception_and_exit():
+def _exit_on_exception():
     try:
         yield
     except SystemExit as exc:
@@ -123,17 +123,17 @@ class Service(object):
 
     def _run(self):
         LOG.debug("Run service %s" % self._title)
-        with _catch_exception_and_exit():
+        with _exit_on_exception():
             self.run()
 
     def _reload(self, sig, frame):
-        with _catch_exception_and_exit():
+        with _exit_on_exception():
             self.reload()
 
     def _clean_exit(self, *args, **kwargs):
         LOG.info('Caught SIGTERM signal, '
                  'graceful exiting of service %s' % self._title)
-        with _catch_exception_and_exit():
+        with _exit_on_exception():
             self.terminate()
         os._exit(0)
 
@@ -354,7 +354,7 @@ class ServiceManager(object):
         random.seed()
 
         # Create and run a new service
-        with _catch_exception_and_exit():
+        with _exit_on_exception():
             self._current_process = config.service(worker_id)
             _spawn(self._current_process._run)
 
