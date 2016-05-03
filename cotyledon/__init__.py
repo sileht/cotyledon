@@ -16,7 +16,6 @@ import errno
 import logging
 import os
 import random
-import resource
 import signal
 import sys
 import threading
@@ -25,10 +24,6 @@ import time
 import setproctitle
 
 LOG = logging.getLogger(__name__)
-
-MAXFD = resource.getrlimit(resource.RLIMIT_NOFILE)[1]
-if MAXFD == resource.RLIM_INFINITY:
-    MAXFD = 2048
 
 SIGNAL_TO_NAME = dict((getattr(signal, name), name) for name in dir(signal)
                       if name.startswith("SIG") and name not in ('SIG_DFL',
