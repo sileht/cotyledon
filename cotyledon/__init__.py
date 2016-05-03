@@ -57,10 +57,6 @@ def _catch_exception_and_exit():
         os._exit(2)
 
 
-class ServiceMethodNotImplementedError(NotImplementedError):
-    pass
-
-
 class Service(object):
     """Base class for a service
 
@@ -111,7 +107,6 @@ class Service(object):
 
         To customize the exit code SystemExit exception can be used.
         """
-        raise ServiceMethodNotImplementedError
 
     def reload(self):
         """Reloading of the service
@@ -122,7 +117,7 @@ class Service(object):
         :py:class:`ServiceRunner` will start a new fresh process for this
         service with the same worker_id.
         """
-        raise ServiceMethodNotImplementedError
+        self._clean_exit()
 
     def run(self):
         """Method representing the service activity
@@ -130,31 +125,21 @@ class Service(object):
         If not implemented the process will just wait to receive an ending
         signal.
         """
-        raise ServiceMethodNotImplementedError
 
     def _run(self):
         LOG.debug("Run service %s" % self._title)
         with _catch_exception_and_exit():
-            try:
-                self.run()
-            except ServiceMethodNotImplementedError:
-                pass
+            self.run()
 
     def _reload(self, sig, frame):
         with _catch_exception_and_exit():
-            try:
-                self.reload()
-            except ServiceMethodNotImplementedError:
-                self._clean_exit()
+            self.reload()
 
     def _clean_exit(self, *args, **kwargs):
         LOG.info('Caught SIGTERM signal, '
                  'graceful exiting of service %s' % self._title)
         with _catch_exception_and_exit():
-            try:
-                self.terminate()
-            except ServiceMethodNotImplementedError:
-                pass
+            self.terminate()
         os._exit(0)
 
 
