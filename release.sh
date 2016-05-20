@@ -12,8 +12,9 @@ git push
 git tag -s $version -m "Release version ${version}"
 git checkout $version
 git clean -fdx
+tox -epep8,py27,py34
 python setup.py --version
-python setup.py sdist
+python setup.py sdist bdist_wheel
 
 set +x
 echo
