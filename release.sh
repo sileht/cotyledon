@@ -30,5 +30,5 @@ set -x
 
 read
 git push --tags
-twine upload -r pypi -s dist/cotyledo-${version}.tar.gz dist/cotyledo-${version}-py2.py3-none-any.whl
+twine upload -r pypi -s dist/cotyledon-${version}.tar.gz dist/cotyledon-${version}-py2.py3-none-any.whl
 git checkout master
