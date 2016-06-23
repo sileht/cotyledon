@@ -18,6 +18,7 @@ import logging
 import os
 import random
 import signal
+import socket
 import sys
 import threading
 import time
@@ -242,6 +243,7 @@ class ServiceManager(object):
         All spawned processes are part of the same unix process group.
         """
 
+        self._systemd_notify_once()
         while not self._shutdown.is_set():
             info = self._wait_service()
             if info is not None:
@@ -386,3 +388,27 @@ class ServiceManager(object):
             self._current_process._clean_exit()
         else:
             _logged_sys_exit(0)
+
+    @staticmethod
+    def _systemd_notify_once():
+        """Send notification once to Systemd that service is ready.
+
+        Systemd sets NOTIFY_SOCKET environment variable with the name of the
+        socket listening for notifications from services.
+        This method removes the NOTIFY_SOCKET environment variable to ensure
+        notification is sent only once.
+        """
+
+        notify_socket = os.getenv('NOTIFY_SOCKET')
+        if notify_socket:
+            if notify_socket.startswith('@'):
+                # abstract namespace socket
+                notify_socket = '\0%s' % notify_socket[1:]
+            sock = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
+            with contextlib.closing(sock):
+                try:
+                    sock.connect(notify_socket)
+                    sock.sendall(b'READY=1')
+                    del os.environ['NOTIFY_SOCKET']
+                except EnvironmentError:
+                    LOG.debug("Systemd notification failed", exc_info=True)
