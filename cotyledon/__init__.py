@@ -10,6 +10,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import atexit
 import collections
 import contextlib
 import errno
@@ -41,15 +42,24 @@ def _spawn(target):
     return t
 
 
+def _logged_sys_exit(code):
+    # NOTE(sileht): Ensure we send atexit exception to logs
+    try:
+        atexit._run_exitfuncs()
+    except Exception:
+        LOG.exception("unexpected atexit exception")
+    os._exit(code)
+
+
 @contextlib.contextmanager
 def _exit_on_exception():
     try:
         yield
     except SystemExit as exc:
-        os._exit(exc.code)
+        _logged_sys_exit(exc.code)
     except BaseException:
         LOG.exception('Unhandled exception')
-        os._exit(2)
+        _logged_sys_exit(2)
 
 
 class Service(object):
@@ -135,7 +145,7 @@ class Service(object):
                  'graceful exiting of service %s' % self._title)
         with _exit_on_exception():
             self.terminate()
-        os._exit(0)
+            sys.exit(0)
 
 
 class ServiceManager(object):
@@ -256,7 +266,7 @@ class ServiceManager(object):
         os.waitpid(-1, 0)
 
         LOG.debug("Shutdown finish")
-        os._exit(0)
+        _logged_sys_exit(0)
 
     def _wait_service(self):
         """Return the last died service or None"""
@@ -375,4 +385,4 @@ class ServiceManager(object):
         if self._current_process is not None:
             self._current_process._clean_exit()
         else:
-            os._exit(0)
+            _logged_sys_exit(0)
