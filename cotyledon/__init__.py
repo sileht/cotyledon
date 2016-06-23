@@ -303,20 +303,18 @@ class ServiceManager(object):
         LOG.info('Caught SIGTERM signal, graceful exiting of master process')
         self._shutdown.set()
 
-    def _fast_exit(self, signo, frame):
+    def _fast_exit(self, signo, frame,
+                   reason='Caught SIGINT signal, instantaneous exiting'):
         signal.signal(signal.SIGINT, signal.SIG_IGN)
         signal.signal(signal.SIGALRM, signal.SIG_IGN)
-        LOG.info('Caught SIGINT signal, instantaneous exiting')
+        LOG.info(reason)
         os.killpg(0, signal.SIGINT)
         os._exit(1)
 
     def _alarm_exit(self, signo, frame):
-        signal.signal(signal.SIGINT, signal.SIG_IGN)
-        signal.signal(signal.SIGALRM, signal.SIG_IGN)
-        LOG.info('Graceful shutdown timeout exceeded, '
-                 'instantaneous exiting of master process')
-        os.killpg(0, signal.SIGINT)
-        os._exit(1)
+        self._fast_exit(signo, frame,
+                        reason='Graceful shutdown timeout exceeded, '
+                        'instantaneous exiting of master process')
 
     def _slowdown_respawn_if_needed(self):
         # Limit ourselves to one process a second (over the period of
