@@ -252,7 +252,7 @@ class ServiceManager(object):
             else:
                 for conf in self._services:
                     if len(self._running_services[conf]) < conf.workers:
-                        worker_id = len(self._running_services[conf]) + 1
+                        worker_id = len(self._running_services[conf])
                         break
                 else:
                     time.sleep(self._wait_interval)
