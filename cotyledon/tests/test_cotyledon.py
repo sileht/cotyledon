@@ -59,9 +59,9 @@ class TestCotyledon(base.TestCase):
         self.pid_heavy_2 = self.get_pid(lines[1])
         self.pid_light_1 = self.get_pid(lines[2])
         lines = self.hide_pids(lines)
-        self.assertEqual([b'DEBUG:cotyledon:Run service heavy(1) [XXXX]',
-                          b'DEBUG:cotyledon:Run service heavy(2) [XXXX]',
-                          b'DEBUG:cotyledon:Run service light(1) [XXXX]',
+        self.assertEqual([b'DEBUG:cotyledon:Run service heavy(0) [XXXX]',
+                          b'DEBUG:cotyledon:Run service heavy(1) [XXXX]',
+                          b'DEBUG:cotyledon:Run service light(0) [XXXX]',
                           b'ERROR:cotyledon.tests.examples:heavy init',
                           b'ERROR:cotyledon.tests.examples:heavy init',
                           b'ERROR:cotyledon.tests.examples:heavy run',
@@ -97,9 +97,9 @@ class TestCotyledon(base.TestCase):
         self.pid_light_1 = self.get_pid(lines[-1])
         lines = self.hide_pids(lines)
         self.assertEqual([b'INFO:cotyledon:Caught SIGTERM signal, graceful '
-                          b'exiting of service light(1) [XXXX]',
+                          b'exiting of service light(0) [XXXX]',
                           b'INFO:cotyledon:Child XXXX exited with status 0',
-                          b'DEBUG:cotyledon:Run service light(1) [XXXX]'
+                          b'DEBUG:cotyledon:Run service light(0) [XXXX]'
                           ], lines)
 
         # Ensure we restart with terminate method exit code
@@ -108,11 +108,11 @@ class TestCotyledon(base.TestCase):
         self.pid_heavy_1 = self.get_pid(lines[-2])
         lines = self.hide_pids(lines)
         self.assertEqual([b'INFO:cotyledon:Caught SIGTERM signal, graceful '
-                          b'exiting of service heavy(1) [XXXX]',
+                          b'exiting of service heavy(0) [XXXX]',
                           b'ERROR:cotyledon.tests.examples:heavy terminate',
                           b'INFO:cotyledon:Child XXXX exited with status 42',
                           b'ERROR:cotyledon.tests.examples:heavy init',
-                          b'DEBUG:cotyledon:Run service heavy(1) [XXXX]',
+                          b'DEBUG:cotyledon:Run service heavy(0) [XXXX]',
                           b'ERROR:cotyledon.tests.examples:heavy run',
                           ], lines)
 
@@ -122,9 +122,9 @@ class TestCotyledon(base.TestCase):
         self.pid_light_1 = self.get_pid(lines[-1])
         lines = self.hide_pids(lines)
         self.assertEqual([b'INFO:cotyledon:Caught SIGTERM signal, graceful '
-                          b'exiting of service light(1) [XXXX]',
+                          b'exiting of service light(0) [XXXX]',
                           b'INFO:cotyledon:Child XXXX exited with status 0',
-                          b'DEBUG:cotyledon:Run service light(1) [XXXX]',
+                          b'DEBUG:cotyledon:Run service light(0) [XXXX]',
                           ], lines)
 
         # Ensure everthing is still alive
@@ -148,11 +148,11 @@ class TestCotyledon(base.TestCase):
             b'INFO:cotyledon:Caught SIGTERM signal, '
             b'graceful exiting of master process',
             b'INFO:cotyledon:Caught SIGTERM signal, '
+            b'graceful exiting of service heavy(0) [XXXX]',
+            b'INFO:cotyledon:Caught SIGTERM signal, '
             b'graceful exiting of service heavy(1) [XXXX]',
             b'INFO:cotyledon:Caught SIGTERM signal, '
-            b'graceful exiting of service heavy(2) [XXXX]',
-            b'INFO:cotyledon:Caught SIGTERM signal, '
-            b'graceful exiting of service light(1) [XXXX]',
+            b'graceful exiting of service light(0) [XXXX]',
         ], lines)
 
         self.assert_everything_is_dead()
@@ -178,11 +178,11 @@ class TestCotyledon(base.TestCase):
             b'ERROR:cotyledon.tests.examples:heavy terminate',
             b'ERROR:cotyledon.tests.examples:heavy terminate',
             b'INFO:cotyledon:Caught SIGTERM signal, graceful exiting of '
+            b'service heavy(0) [XXXX]',
+            b'INFO:cotyledon:Caught SIGTERM signal, graceful exiting of '
             b'service heavy(1) [XXXX]',
             b'INFO:cotyledon:Caught SIGTERM signal, graceful exiting of '
-            b'service heavy(2) [XXXX]',
-            b'INFO:cotyledon:Caught SIGTERM signal, graceful exiting of '
-            b'service light(1) [XXXX]',
+            b'service light(0) [XXXX]',
             b'INFO:cotyledon:Parent process has died unexpectedly, exiting',
             b'INFO:cotyledon:Parent process has died unexpectedly, exiting',
             b'INFO:cotyledon:Parent process has died unexpectedly, exiting',
