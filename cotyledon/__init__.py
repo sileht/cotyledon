@@ -33,7 +33,9 @@ SIGNAL_TO_NAME = dict((getattr(signal, name), name) for name in dir(signal)
 
 
 _ServiceConfig = collections.namedtuple("ServiceConfig", ["service",
-                                                          "workers"])
+                                                          "workers",
+                                                          "args",
+                                                          "kwargs"])
 
 
 def _spawn(target):
@@ -224,15 +226,19 @@ class ServiceManager(object):
         signal.signal(signal.SIGALRM, self._alarm_exit)
         signal.signal(signal.SIGHUP, self._reload_services)
 
-    def add(self, service, workers=1):
+    def add(self, service, workers=1, args=None, kwargs=None):
         """Add a new service to the ServiceManager
 
         :param service: callable that return an instance of :py:class:`Service`
         :type service: callable
         :param workers: number of processes/workers for this service
         :type workers: int
+        :param args: additional positional arguments for this service
+        :type args: tuple
+        :param kwargs: additional keywoard arguments for this service
+        :type kwargs: dict
         """
-        self._services.append(_ServiceConfig(service, workers))
+        self._services.append(_ServiceConfig(service, workers, args, kwargs))
 
     def run(self):
         """Start and supervise services
@@ -365,7 +371,9 @@ class ServiceManager(object):
 
         # Create and run a new service
         with _exit_on_exception():
-            self._current_process = config.service(worker_id)
+            args = tuple() if config.args is None else config.args
+            kwargs = dict() if config.kwargs is None else config.kwargs
+            self._current_process = config.service(worker_id, *args, **kwargs)
             _spawn(self._current_process._run)
 
         # Wait forever
