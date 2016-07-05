@@ -3,7 +3,8 @@
 set -e
 set -x
 
-version=$(python setup.py --version | sed 's/\.dev.*//')
+version=$1
+[ ! "$version"] && version=$(python setup.py --version | sed 's/\.dev.*//')
 
 status=$(git status -sz)
 [ -z "$status" ] || false
@@ -13,7 +14,11 @@ git tag -s $version -m "Release version ${version}"
 git checkout $version
 git clean -fdx
 #tox -epep8,py27,py34
-python setup.py --version
+pbr_version=$(python setup.py --version)
+if [ "$version" != "$pbr_version" ]; then
+    echo "something goes wrong pbr version is different from the provided one. ($pbr_version != $version)"
+    exit 1
+fi
 python setup.py sdist bdist_wheel
 
 set +x
