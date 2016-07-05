@@ -113,7 +113,6 @@ class Service(object):
     """Service name used in the process title and the log messages in additionnal
     of the worker_id."""
 
-
     def __init__(self, worker_id):
         """Create a new Service
 
