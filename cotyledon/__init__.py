@@ -427,8 +427,9 @@ class ServiceManager(object):
         except EnvironmentError:
             pass
 
-        LOG.info('Parent process has died unexpectedly, exiting')
         if self._current_process is not None:
+            LOG.info('Parent process has died unexpectedly, %s exiting'
+                     % self._current_process._title)
             with _exit_on_exception():
                 self._current_process.terminate()
                 sys.exit(0)

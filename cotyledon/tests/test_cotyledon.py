@@ -46,7 +46,7 @@ class TestCotyledon(base.TestCase):
     @staticmethod
     def hide_pids(lines):
         return [re.sub(b"Child \d+", b"Child XXXX",
-                       re.sub(b" \[[^\]]*\]$", b" [XXXX]", line))
+                       re.sub(b" \[[^\]]*\]", b" [XXXX]", line))
                 for line in lines]
 
     @staticmethod
@@ -180,8 +180,11 @@ class TestCotyledon(base.TestCase):
         self.assertEqual([
             b'ERROR:cotyledon.tests.examples:heavy terminate',
             b'ERROR:cotyledon.tests.examples:heavy terminate',
-            b'INFO:cotyledon:Parent process has died unexpectedly, exiting',
-            b'INFO:cotyledon:Parent process has died unexpectedly, exiting',
-            b'INFO:cotyledon:Parent process has died unexpectedly, exiting',
+            b'INFO:cotyledon:Parent process has died unexpectedly, '
+            b'heavy(0) [XXXX] exiting',
+            b'INFO:cotyledon:Parent process has died unexpectedly, '
+            b'heavy(1) [XXXX] exiting',
+            b'INFO:cotyledon:Parent process has died unexpectedly, '
+            b'light(0) [XXXX] exiting',
         ], lines)
         self.assert_everything_is_dead(-9)
