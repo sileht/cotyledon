@@ -51,7 +51,10 @@ class TestCotyledon(base.TestCase):
 
     @staticmethod
     def get_pid(line):
-        return int(line.split()[-1][1:-1])
+        try:
+            return int(line.split()[-1][1:-1])
+        except Exception:
+            raise Exception('Fail to find pid in %s' % line.split())
 
     def assert_everything_has_started(self):
         lines = sorted(self.get_lines(7))
@@ -177,12 +180,6 @@ class TestCotyledon(base.TestCase):
         self.assertEqual([
             b'ERROR:cotyledon.tests.examples:heavy terminate',
             b'ERROR:cotyledon.tests.examples:heavy terminate',
-            b'INFO:cotyledon:Caught SIGTERM signal, graceful exiting of '
-            b'service heavy(0) [XXXX]',
-            b'INFO:cotyledon:Caught SIGTERM signal, graceful exiting of '
-            b'service heavy(1) [XXXX]',
-            b'INFO:cotyledon:Caught SIGTERM signal, graceful exiting of '
-            b'service light(0) [XXXX]',
             b'INFO:cotyledon:Parent process has died unexpectedly, exiting',
             b'INFO:cotyledon:Parent process has died unexpectedly, exiting',
             b'INFO:cotyledon:Parent process has died unexpectedly, exiting',

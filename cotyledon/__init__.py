@@ -115,6 +115,8 @@ class Service(object):
         :param worker_id: the identifier of this service instance
         :param worker_id: int
         """
+        self._shutdown = threading.Event()
+
         if self.name is None:
             self.name = self.__class__.__name__
         self.worker_id = worker_id
@@ -169,6 +171,7 @@ class Service(object):
             self.reload()
 
     def _clean_exit(self, *args, **kwargs):
+        signal.signal(signal.SIGTERM, signal.SIG_IGN)
         LOG.info('Caught SIGTERM signal, '
                  'graceful exiting of service %s' % self._title)
         with _exit_on_exception():
@@ -423,7 +426,10 @@ class ServiceManager(object):
 
         LOG.info('Parent process has died unexpectedly, exiting')
         if self._current_process is not None:
-            self._current_process._clean_exit()
+            with _exit_on_exception():
+                self._current_process.terminate()
+                sys.exit(0)
+
         else:
             _logged_sys_exit(0)
 
