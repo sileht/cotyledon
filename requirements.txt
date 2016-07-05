@@ -4,3 +4,4 @@
 
 pbr>=1.6
 setproctitle
+six

@@ -80,6 +80,35 @@ class Service(object):
     """Service name used in the process title and the log messages in additionnal
     of the worker_id."""
 
+    def __new__(cls, *args, **kwargs):
+        catched_signals = {
+            signal.SIGHUP: None,
+            signal.SIGTERM: None,
+        }
+
+        def signal_delayer(sig, frame):
+            signal.signal(signal.SIGTERM, signal.SIG_IGN)
+            LOG.info('Caught signal (%s) during service initialisation, '
+                     'delaying it' % sig)
+            catched_signals[sig] = frame
+
+        # Setup temporary signals
+        signal.signal(signal.SIGHUP, signal_delayer)
+        signal.signal(signal.SIGTERM, signal_delayer)
+
+        obj = super(Service, cls).__new__(cls, *args, **kwargs)
+
+        # Setup final signals
+        if catched_signals[signal.SIGTERM] is not None:
+            obj._clean_exit(signal.SIGTERM, catched_signals[signal.SIGTERM])
+        signal.signal(signal.SIGTERM, obj._clean_exit)
+
+        if catched_signals[signal.SIGHUP] is not None:
+            obj._reload(signal.SIGHUP, catched_signals[signal.SIGHUP])
+        signal.signal(signal.SIGHUP, obj._reload)
+
+        return obj
+
     def __init__(self, worker_id):
         """Create a new Service
 
@@ -100,10 +129,6 @@ class Service(object):
             "%(pname)s - %(name)s(%(worker_id)d)" % dict(
                 pname=pname, name=self.name,
                 worker_id=self.worker_id))
-
-        # Setup signals
-        signal.signal(signal.SIGHUP, self._reload)
-        signal.signal(signal.SIGTERM, self._clean_exit)
 
     def terminate(self):
         """Gracefully shutdown the service
