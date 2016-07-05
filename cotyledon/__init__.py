@@ -24,6 +24,7 @@ import threading
 import time
 
 import setproctitle
+import six
 
 LOG = logging.getLogger(__name__)
 
@@ -65,22 +66,8 @@ def _exit_on_exception():
         _logged_sys_exit(2)
 
 
-class Service(object):
-    """Base class for a service
-
-    This class will be executed in a new child process of a
-    :py:class:`ServiceRunner`. It registers signals to manager the reloading
-    and the ending of the process.
-
-    Methods :py:meth:`run`, :py:meth:`terminate` and :py:meth:`reload` are
-    optional.
-    """
-
-    name = None
-    """Service name used in the process title and the log messages in additionnal
-    of the worker_id."""
-
-    def __new__(cls, *args, **kwargs):
+class ServiceMeta(type):
+    def __call__(cls, *args, **kwargs):
         catched_signals = {
             signal.SIGHUP: None,
             signal.SIGTERM: None,
@@ -96,7 +83,7 @@ class Service(object):
         signal.signal(signal.SIGHUP, signal_delayer)
         signal.signal(signal.SIGTERM, signal_delayer)
 
-        obj = super(Service, cls).__new__(cls, *args, **kwargs)
+        obj = type.__call__(cls, *args, **kwargs)
 
         # Setup final signals
         if catched_signals[signal.SIGTERM] is not None:
@@ -109,14 +96,31 @@ class Service(object):
 
         return obj
 
+
+@six.add_metaclass(ServiceMeta)
+class Service(object):
+    """Base class for a service
+
+    This class will be executed in a new child process of a
+    :py:class:`ServiceRunner`. It registers signals to manager the reloading
+    and the ending of the process.
+
+    Methods :py:meth:`run`, :py:meth:`terminate` and :py:meth:`reload` are
+    optional.
+    """
+
+    name = None
+    """Service name used in the process title and the log messages in additionnal
+    of the worker_id."""
+
+
     def __init__(self, worker_id):
         """Create a new Service
 
         :param worker_id: the identifier of this service instance
         :param worker_id: int
         """
-        self._shutdown = threading.Event()
-
+        super(Service, self).__init__()
         if self.name is None:
             self.name = self.__class__.__name__
         self.worker_id = worker_id
