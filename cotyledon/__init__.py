@@ -169,20 +169,25 @@ class ServiceManager(object):
     Usage::
 
         class MyService(Service):
-            def __init__(self):
-                preparing_my_job()
+            def __init__(self, worker_id, myconf):
+                super(MyService, self).__init__(worker_id)
+                preparing_my_job(myconf)
+                self.running = True
 
             def run(self):
-                do_my_job()
+                while self.running:
+                    do_my_job()
 
             def terminate(self):
-                gracefully_stop_my_job()
+                self.running = False
+                gracefully_stop_my_jobs()
 
             def reload(self):
                 restart_my_job()
 
+        conf = {'foobar': 2}
         sr = ServiceManager()
-        sr.add("my_service", MyService, 5)
+        sr.add(MyService, 5, conf)
         sr.run()
 
     This will create 5 children processes running the service MyService.
