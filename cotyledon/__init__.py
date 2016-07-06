@@ -24,7 +24,6 @@ import threading
 import time
 
 import setproctitle
-import six
 
 LOG = logging.getLogger(__name__)
 
@@ -66,38 +65,6 @@ def _exit_on_exception():
         _logged_sys_exit(2)
 
 
-class ServiceMeta(type):
-    def __call__(cls, *args, **kwargs):
-        catched_signals = {
-            signal.SIGHUP: None,
-            signal.SIGTERM: None,
-        }
-
-        def signal_delayer(sig, frame):
-            signal.signal(signal.SIGTERM, signal.SIG_IGN)
-            LOG.info('Caught signal (%s) during service initialisation, '
-                     'delaying it' % sig)
-            catched_signals[sig] = frame
-
-        # Setup temporary signals
-        signal.signal(signal.SIGHUP, signal_delayer)
-        signal.signal(signal.SIGTERM, signal_delayer)
-
-        obj = type.__call__(cls, *args, **kwargs)
-
-        # Setup final signals
-        if catched_signals[signal.SIGTERM] is not None:
-            obj._clean_exit(signal.SIGTERM, catched_signals[signal.SIGTERM])
-        signal.signal(signal.SIGTERM, obj._clean_exit)
-
-        if catched_signals[signal.SIGHUP] is not None:
-            obj._reload(signal.SIGHUP, catched_signals[signal.SIGHUP])
-        signal.signal(signal.SIGHUP, obj._reload)
-
-        return obj
-
-
-@six.add_metaclass(ServiceMeta)
 class Service(object):
     """Base class for a service
 
@@ -411,9 +378,38 @@ class ServiceManager(object):
 
         # Create and run a new service
         with _exit_on_exception():
+            catched_signals = {
+                signal.SIGHUP: None,
+                signal.SIGTERM: None,
+            }
+
+            def signal_delayer(sig, frame):
+                signal.signal(signal.SIGTERM, signal.SIG_IGN)
+                LOG.info('Caught signal (%s) during service initialisation, '
+                         'delaying it' % sig)
+                catched_signals[sig] = frame
+
+            # Setup temporary signals
+            signal.signal(signal.SIGHUP, signal_delayer)
+            signal.signal(signal.SIGTERM, signal_delayer)
+
+            # Initialize the service process
             args = tuple() if config.args is None else config.args
             kwargs = dict() if config.kwargs is None else config.kwargs
             self._current_process = config.service(worker_id, *args, **kwargs)
+
+            # Setup final signals
+            if catched_signals[signal.SIGTERM] is not None:
+                self._current_process._clean_exit(
+                    signal.SIGTERM, catched_signals[signal.SIGTERM])
+            signal.signal(signal.SIGTERM, self._current_process._clean_exit)
+
+            if catched_signals[signal.SIGHUP] is not None:
+                self._current_process._reload(
+                    signal.SIGHUP, catched_signals[signal.SIGHUP])
+            signal.signal(signal.SIGHUP, self._current_process._reload)
+
+            # Start the main thread
             _spawn(self._current_process._run)
 
         # Wait forever
