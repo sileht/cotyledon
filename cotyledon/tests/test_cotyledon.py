@@ -140,6 +140,8 @@ class TestCotyledon(base.TestCase):
         os.kill(self.subp.pid, signal.SIGTERM)
         self.subp.terminate()
         lines = self.get_lines()
+        self.assertEqual(b'DEBUG:cotyledon:Shutdown finish',
+                         lines[-1])
         time.sleep(0.5)
         lines = sorted(self.hide_pids(lines))
         self.assertEqual([

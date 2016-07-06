@@ -307,7 +307,11 @@ class ServiceManager(object):
         os.killpg(0, signal.SIGTERM)
 
         LOG.debug("Waiting services to terminate")
-        os.waitpid(-1, 0)
+        while True:
+            try:
+                os.waitpid(0, 0)
+            except OSError:
+                break
 
         LOG.debug("Shutdown finish")
         _logged_sys_exit(0)
