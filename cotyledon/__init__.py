@@ -32,10 +32,12 @@ SIGNAL_TO_NAME = dict((getattr(signal, name), name) for name in dir(signal)
                                                                  'SIG_IGN'))
 
 
-_ServiceConfig = collections.namedtuple("ServiceConfig", ["service",
-                                                          "workers",
-                                                          "args",
-                                                          "kwargs"])
+class _ServiceConfig(object):
+    def __init__(self, service, workers, args, kwargs):
+        self.service = service
+        self.workers = workers
+        self.args = args
+        self.kwargs = kwargs
 
 
 def _spawn(target):
