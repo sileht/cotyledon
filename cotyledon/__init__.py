@@ -279,8 +279,11 @@ class ServiceManager(object):
         while True:
             try:
                 os.waitpid(0, 0)
-            except OSError:
-                break
+            except OSError as e:
+                if e.errno == errno.ECHILD:
+                    break
+                else:
+                    raise
 
         LOG.debug("Shutdown finish")
         _logged_sys_exit(0)
