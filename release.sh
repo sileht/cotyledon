@@ -9,11 +9,11 @@ version=$1
 status=$(git status -sz)
 [ -z "$status" ] || false
 git checkout master
+tox -epep8,py27,py34
 git push 
 git tag -s $version -m "Release version ${version}"
 git checkout $version
-git clean -fdx
-#tox -epep8,py27,py34
+git clean -fd
 pbr_version=$(python setup.py --version)
 if [ "$version" != "$pbr_version" ]; then
     echo "something goes wrong pbr version is different from the provided one. ($pbr_version != $version)"
