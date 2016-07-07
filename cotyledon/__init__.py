@@ -310,7 +310,7 @@ class ServiceManager(object):
             if pid in self._running_services[conf]:
                 return conf, self._running_services[conf].pop(pid)
 
-        LOG.warning('pid %d not in service list', pid)
+        LOG.error('pid %d not in service list', pid)
 
     def _reload_services(self, *args, **kwargs):
         if self._shutdown.is_set():
