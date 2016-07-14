@@ -86,7 +86,7 @@ class Service(object):
         """Create a new Service
 
         :param worker_id: the identifier of this service instance
-        :param worker_id: int
+        :type worker_id: int
         """
         super(Service, self).__init__()
         if self.name is None:
@@ -107,18 +107,19 @@ class Service(object):
     def terminate(self):
         """Gracefully shutdown the service
 
-        This method will be executed when the Service have to
-        shutdown cleanly.
+        This method will be executed when the Service has to shutdown cleanly.
 
         If not implemented the process will just end with status 0.
 
-        To customize the exit code SystemExit exception can be used.
+        To customize the exit code, the :py:class:`SystemExit` exception can be
+        used.
+
         """
 
     def reload(self):
         """Reloading of the service
 
-        This method will be executed when the Service receive a SIGHUP.
+        This method will be executed when the Service receives a SIGHUP.
 
         If not implemented the process will just end with status 0 and
         :py:class:`ServiceRunner` will start a new fresh process for this
@@ -161,8 +162,8 @@ class ServiceManager(object):
 
     Each child process runs an instance of a :py:class:`Service`.
 
-    An application must create only one :py:class:ServiceManager` class
-    and use :py:meth:ServiceManager.run()` as main loop of the application.
+    An application must create only one :py:class:`ServiceManager` class and
+    use :py:meth:`ServiceManager.run()` as main loop of the application.
 
 
 
