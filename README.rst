@@ -13,9 +13,11 @@ Cotyledon
    :target: https://pypi.python.org/pypi/cotyledon/
    :alt: Downloads
 
-
-
 Cotyledon provides a framework for defining long-running services.
+
+It provides handling of Unix signals, spawning of workers, supervision of
+children processes, daemon reloading, sd-notify, rate limiting for worker
+spawning, and more.
 
 * Free software: Apache license
 * Documentation: http://cotyledon.readthedocs.org/
