@@ -43,12 +43,14 @@ monkeypatch the python stdlib anymore. Making `Tooz <http://docs.openstack.org/d
 And processes that doesn't exists as expected due to greenpipe never processed.
 
 Unlike oslo.service, cotyledon have:
+
 * The same code path when workers=1 and workers>=2
 * reload API (on SIGHUP) hooks work in case of you don't want to restarting children
 * a separated the API for children process termination and for the master process termination
 * seatbelt to ensure only one service workers manager run at a time.
 
 And doesn't:
+
 * facilitate the creation of wsgi application (sockets sharing between parent and children process). Because too many wsgi webserver already exists.
 
 So these toohard to fix issues and the heavy eventlet dependencies make this
