@@ -46,7 +46,7 @@ Unlike oslo.service, cotyledon have:
 
 * The same code path when workers=1 and workers>=2
 * reload API (on SIGHUP) hooks work in case of you don't want to restarting children
-* a separated the API for children process termination and for the master process termination
+* a separated API for children process termination and for master process termination
 * seatbelt to ensure only one service workers manager run at a time.
 
 And doesn't:
