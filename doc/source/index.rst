@@ -14,6 +14,7 @@ Contents:
    readme
    installation
    api
+   examples
    contributing
 
 Indices and tables
