@@ -23,3 +23,29 @@ spawning, and more.
 * Documentation: http://cotyledon.readthedocs.org/
 * Source: https://github.com/sileht/cotyledon
 * Bugs: https://github.com/sileht/cotyledon/issues
+
+Why Cotyledon
+=============
+
+This library is mainly used in Openstack Telemetry projects for now. In the past
+oslo.service was used. But our projects don't want to use eventlet anymore.
+
+oslo.service is written on top of eventlet to provide to main features:
+
+* periodic tasks
+* workers processes management
+
+The first one was replaced by another Oslo lib called `futurist <http://docs.openstack.org/developer/futurist/>`_
+and the second part by *Cotyledon*.
+
+Unlike oslo.service, cotyledon have:
+* The same code path when workers=1 and workers>=2
+* reload API (on SIGHUP) hooks work in case of you don't want to restarting children
+* a separated the API for children process termination and for the master process termination
+* seatbelt to ensure only one service workers manager run at a time.
+
+And doesn't:
+* facilitate the creation of wsgi application (sockets sharing between parent and children process). Because too many wsgi webserver already exists.
+
+So these toohard to fix issues and the heavy eventlet dependencies make this
+library to appear.
