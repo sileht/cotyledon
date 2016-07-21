@@ -38,6 +38,10 @@ oslo.service is written on top of eventlet to provide to main features:
 The first one was replaced by another Oslo lib called `futurist <http://docs.openstack.org/developer/futurist/>`_
 and the second part by *Cotyledon*.
 
+Our main issue was greenlet that doesn't run in timely fashion because we don't
+monkeypatch the python stdlib anymore. Making `Tooz <http://docs.openstack.org/developer/tooz/>`_/`Oslo.messaging <http://docs.openstack.org/developer/oslo.messaging/>`_ hearbeats to fail.
+And processes that doesn't exists as expected due to greenpipe never processed.
+
 Unlike oslo.service, cotyledon have:
 * The same code path when workers=1 and workers>=2
 * reload API (on SIGHUP) hooks work in case of you don't want to restarting children
