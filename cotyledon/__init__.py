@@ -267,14 +267,17 @@ class ServiceManager(object):
         os.killpg(0, signal.SIGTERM)
 
         LOG.debug("Waiting services to terminate")
-        while True:
-            try:
-                os.waitpid(0, 0)
-            except OSError as e:
-                if e.errno == errno.ECHILD:
-                    break
-                else:
-                    raise
+        # NOTE(sileht): We follow the termination of our children only
+        # so we can't use waitpid(0, 0)
+        for conf in self._services:
+            for pid in self._running_services[conf]:
+                try:
+                    os.waitpid(pid, 0)
+                except OSError as e:
+                    if e.errno == errno.ECHILD:
+                        pass
+                    else:
+                        raise
 
         LOG.debug("Shutdown finish")
         sys.exit(0)
