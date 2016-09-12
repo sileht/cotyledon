@@ -9,7 +9,7 @@ version=$1
 status=$(git status -sz)
 [ -z "$status" ] || false
 git checkout master
-tox -epy34,py27,pep8
+tox -epy35,py27,pep8
 git push 
 git tag -s $version -m "Release version ${version}"
 git checkout $version
