@@ -416,7 +416,7 @@ class ServiceManager(object):
         # threading.Thread().join() because of
         # https://bugs.python.org/issue5315
         while True:
-            time.sleep(1000000000)
+            time.sleep(100000000)
 
     def _watch_parent_process(self):
         # This will block until the write end is closed when the parent
