@@ -79,6 +79,13 @@ class Service(object):
         :type worker_id: int
         """
         super(Service, self).__init__()
+        self._initialize(worker_id)
+
+    def _initialize(self, worker_id):
+        if getattr(self, '_initialized', False):
+            return
+        self._initialized = True
+
         if self.name is None:
             self.name = self.__class__.__name__
         self.worker_id = worker_id
@@ -185,7 +192,6 @@ class ServiceManager(object):
 
     """
 
-    _marker = object()
     _process_runner_already_created = False
 
     def __init__(self, wait_interval=0.01):
@@ -396,6 +402,7 @@ class ServiceManager(object):
             args = tuple() if config.args is None else config.args
             kwargs = dict() if config.kwargs is None else config.kwargs
             self._current_process = config.service(worker_id, *args, **kwargs)
+            self._current_process._initialize(worker_id)
 
             # Setup final signals
             if catched_signals[signal.SIGTERM] is not None:
