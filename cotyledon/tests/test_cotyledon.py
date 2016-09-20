@@ -16,23 +16,24 @@ import os
 import re
 import signal
 import subprocess
+import sys
 import time
+import unittest
 
 from cotyledon.tests import base
 
 
-class TestCotyledon(base.TestCase):
-
+class Base(base.TestCase):
     def setUp(self):
-        super(TestCotyledon, self).setUp()
-        self.subp = subprocess.Popen(['cotyledon-example'],
+        super(Base, self).setUp()
+        self.subp = subprocess.Popen([self.name],
                                      stdout=subprocess.PIPE,
                                      stderr=subprocess.STDOUT,
                                      close_fds=True,
                                      preexec_fn=os.setsid)
 
     def cleanUp(self):
-        super(TestCotyledon, self).cleanUp()
+        super(Base, self).cleanUp()
         if self.subp.poll() is None:
             self.subp.kill()
 
@@ -55,6 +56,10 @@ class TestCotyledon(base.TestCase):
             return int(line.split()[-1][1:-1])
         except Exception:
             raise Exception('Fail to find pid in %s' % line.split())
+
+
+class TestCotyledon(Base):
+    name = 'cotyledon-example'
 
     def assert_everything_has_started(self):
         lines = sorted(self.get_lines(7))
@@ -190,3 +195,27 @@ class TestCotyledon(base.TestCase):
             b'light(0) [XXXX] exiting',
         ], lines)
         self.assert_everything_is_dead(-9)
+
+
+class TestBuggyCotyledon(Base):
+    name = "cotyledon-buggy"
+
+    @unittest.skipIf(sys.version_info[0] != 3,
+                     "Buggy on py27, time.sleep returns before alarm callback "
+                     "is called")
+    def test_graceful_timeout(self):
+        lines = self.get_lines(1)
+        childpid = self.get_pid(lines[0])
+        self.subp.terminate()
+        time.sleep(2)
+        self.assertEqual(0, self.subp.poll())
+        self.assertRaises(OSError, os.kill, self.subp.pid, 0)
+        self.assertRaises(OSError, os.kill, childpid, 0)
+        lines = self.hide_pids(self.get_lines())
+        self.assertNotIn('ERROR:cotyledon.tests.examples:time.sleep done',
+                         lines)
+        self.assertEqual([
+            b'INFO:cotyledon:Graceful shutdown timeout (1) exceeded, '
+            b'exiting buggy(0) [XXXX] now.',
+            b'DEBUG:cotyledon:Shutdown finish'
+        ], lines[-2:])

@@ -13,6 +13,7 @@
 import logging
 import sys
 import threading
+import time
 
 import cotyledon
 
@@ -44,9 +45,25 @@ class LigthService(cotyledon.Service):
     name = "light"
 
 
+class BuggyService(cotyledon.Service):
+    name = "buggy"
+    graceful_shutdown_timeout = 1
+
+    def terminate(self):
+        time.sleep(60)
+        LOG.error("time.sleep done")
+
+
 def example_app():
     logging.basicConfig(level=logging.DEBUG)
     p = cotyledon.ServiceManager()
     p.add(FullService, 2)
     p.add(LigthService)
+    p.run()
+
+
+def buggy_app():
+    logging.basicConfig(level=logging.DEBUG)
+    p = cotyledon.ServiceManager()
+    p.add(BuggyService)
     p.run()

@@ -72,6 +72,10 @@ class Service(object):
     """Service name used in the process title and the log messages in additionnal
     of the worker_id."""
 
+    graceful_shutdown_timeout = 60
+    """Timeout after which a gracefully shutdown service will exit. zero means
+    endless wait."""
+
     def __init__(self, worker_id):
         """Create a new Service
 
@@ -142,11 +146,18 @@ class Service(object):
 
     def _clean_exit(self, *args, **kwargs):
         signal.signal(signal.SIGTERM, signal.SIG_IGN)
+        if self.graceful_shutdown_timeout > 0:
+            signal.alarm(self.graceful_shutdown_timeout)
         LOG.info('Caught SIGTERM signal, '
                  'graceful exiting of service %s' % self._title)
         with _exit_on_exception():
             self.terminate()
             sys.exit(0)
+
+    def _graceful_shutdown_timeout_cb(self, signum, frame):
+        LOG.info('Graceful shutdown timeout (%d) exceeded, exiting %s now.' %
+                 (self.graceful_shutdown_timeout, self._title))
+        os._exit(1)
 
 
 class ServiceManager(object):
@@ -386,6 +397,7 @@ class ServiceManager(object):
             catched_signals = {
                 signal.SIGHUP: None,
                 signal.SIGTERM: None,
+                signal.SIGALRM: None,
             }
 
             def signal_delayer(sig, frame):
@@ -397,6 +409,7 @@ class ServiceManager(object):
             # Setup temporary signals
             signal.signal(signal.SIGHUP, signal_delayer)
             signal.signal(signal.SIGTERM, signal_delayer)
+            signal.signal(signal.SIGALRM, signal_delayer)
 
             # Initialize the service process
             args = tuple() if config.args is None else config.args
@@ -405,6 +418,12 @@ class ServiceManager(object):
             self._current_process._initialize(worker_id)
 
             # Setup final signals
+            if catched_signals[signal.SIGALRM] is not None:
+                self._current_process._graceful_shutdown_timeout_cb(
+                    signal.SIGALRM, catched_signals[signal.SIGALRM])
+            signal.signal(signal.SIGALRM,
+                          self._current_process._graceful_shutdown_timeout_cb)
+
             if catched_signals[signal.SIGTERM] is not None:
                 self._current_process._clean_exit(
                     signal.SIGTERM, catched_signals[signal.SIGTERM])
