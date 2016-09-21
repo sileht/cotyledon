@@ -20,7 +20,7 @@ from oslo_config import cfg
 import cotyledon
 from cotyledon import oslo_config_glue
 
-LOG = logging.getLogger(__name__)
+LOG = logging.getLogger("cotyledon.tests.examples")
 
 
 class FullService(cotyledon.Service):
@@ -88,3 +88,7 @@ def oslo_app():
     p = cotyledon.ServiceManager()
     p.add(OsloService)
     p.run()
+
+
+if __name__ == '__main__':
+    globals()[sys.argv[1]]()
