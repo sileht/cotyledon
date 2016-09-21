@@ -48,6 +48,7 @@ Unlike oslo.service, cotyledon have:
 * reload API (on SIGHUP) hooks work in case of you don't want to restarting children
 * a separated API for children process termination and for master process termination
 * seatbelt to ensure only one service workers manager run at a time.
+* Is signal concurrency safe.
 
 And doesn't:
 
