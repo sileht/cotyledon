@@ -15,7 +15,10 @@ import sys
 import threading
 import time
 
+from oslo_config import cfg
+
 import cotyledon
+from cotyledon import oslo_config_glue
 
 LOG = logging.getLogger(__name__)
 
@@ -54,6 +57,17 @@ class BuggyService(cotyledon.Service):
         LOG.error("time.sleep done")
 
 
+class OsloService(cotyledon.Service):
+    name = "oslo"
+
+    def __init__(self, worker_id):
+        conf = cfg.ConfigOpts()
+        conf([], project='gnocchi', validate_default_values=True,
+             version="0.1")
+        oslo_config_glue.load_options(self, conf)
+        oslo_config_glue.list_opts()
+
+
 def example_app():
     logging.basicConfig(level=logging.DEBUG)
     p = cotyledon.ServiceManager()
@@ -66,4 +80,11 @@ def buggy_app():
     logging.basicConfig(level=logging.DEBUG)
     p = cotyledon.ServiceManager()
     p.add(BuggyService)
+    p.run()
+
+
+def oslo_app():
+    logging.basicConfig(level=logging.DEBUG)
+    p = cotyledon.ServiceManager()
+    p.add(OsloService)
     p.run()

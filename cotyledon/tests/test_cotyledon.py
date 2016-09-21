@@ -219,3 +219,14 @@ class TestBuggyCotyledon(Base):
             b'exiting buggy(0) [XXXX] now.',
             b'DEBUG:cotyledon:Shutdown finish'
         ], lines[-2:])
+
+
+class TestOsloCotyledon(Base):
+    name = "cotyledon-oslo"
+
+    def test_options(self):
+        lines = self.get_lines(1)
+        self.assertEqual(
+            b'DEBUG:cotyledon.oslo_config_glue:Full set of CONF:',
+            lines[0])
+        self.subp.terminate()
