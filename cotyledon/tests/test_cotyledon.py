@@ -20,6 +20,7 @@ import sys
 import time
 import unittest
 
+from cotyledon import oslo_config_glue
 from cotyledon.tests import base
 
 
@@ -227,6 +228,11 @@ class TestOsloCotyledon(Base):
     name = "oslo_app"
 
     def test_options(self):
+        options = oslo_config_glue.list_opts()
+        self.assertEqual(1, len(options))
+        self.assertEqual(None, options[0][0])
+        self.assertEqual(2, len(options[0][1]))
+
         lines = self.get_lines(1)
         self.assertEqual(
             b'DEBUG:cotyledon.oslo_config_glue:Full set of CONF:',

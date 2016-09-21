@@ -39,6 +39,6 @@ def load_options(service, conf):
         conf.log_opt_values(LOG, logging.DEBUG)
 
 
-def list_opts(self):
+def list_opts():
     """Entry point for oslo-config-generator."""
     return [(None, copy.deepcopy(service_opts))]

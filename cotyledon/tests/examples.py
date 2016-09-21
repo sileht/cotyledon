@@ -65,7 +65,6 @@ class OsloService(cotyledon.Service):
         conf([], project='gnocchi', validate_default_values=True,
              version="0.1")
         oslo_config_glue.load_options(self, conf)
-        oslo_config_glue.list_opts()
 
 
 def example_app():
