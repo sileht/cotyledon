@@ -280,6 +280,11 @@ class ServiceManager(object):
             pid = self._start_service(conf, worker_id)
             self._running_services[conf][pid] = worker_id
 
+        try:
+            self.terminate()
+        except Exception:
+            LOG.exception("ServiceManager raised exception during shutdown")
+
         LOG.debug("Killing services with signal SIGTERM")
         os.killpg(0, signal.SIGTERM)
 
@@ -298,6 +303,10 @@ class ServiceManager(object):
 
         LOG.debug("Shutdown finish")
         sys.exit(0)
+
+    @staticmethod
+    def terminate():
+        pass
 
     def _wait_service(self):
         """Return the last died service or None"""
