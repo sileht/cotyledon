@@ -468,13 +468,13 @@ class ServiceManager(object):
             # we receive a signal.
             try:
                 select.select([signal_pipe_r], [], [])[0]
-                try:
-                    os.read(signal_pipe_r, 1)
-                except IOError:
-                    pass
             except select.error as e:
                 if e.args[0] != 4:
                     raise
+            try:
+                os.read(signal_pipe_r, 1)
+            except IOError:
+                pass
 
     def _watch_parent_process(self):
         # This will block until the write end is closed when the parent
