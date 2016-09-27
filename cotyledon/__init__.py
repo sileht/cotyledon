@@ -13,9 +13,11 @@
 import collections
 import contextlib
 import errno
+import fcntl
 import logging
 import os
 import random
+import select
 import signal
 import socket
 import sys
@@ -406,6 +408,14 @@ class ServiceManager(object):
 
         # Create and run a new service
         with _exit_on_exception():
+
+            # Setup signal fd, this allows signal to behave correctly
+            signal_pipe_r, signal_pipe_w = os.pipe()
+            flags = fcntl.fcntl(signal_pipe_w, fcntl.F_GETFL, 0)
+            flags = flags | os.O_NONBLOCK
+            fcntl.fcntl(signal_pipe_w, fcntl.F_SETFL, flags)
+            signal.set_wakeup_fd(signal_pipe_w)
+
             catched_signals = {
                 signal.SIGHUP: None,
                 signal.SIGTERM: None,
@@ -450,11 +460,17 @@ class ServiceManager(object):
             _spawn(self._current_process._run)
 
         # Wait forever
-        # NOTE(sileht): we cannot use threading.Event().wait() or
-        # threading.Thread().join() because of
-        # https://bugs.python.org/issue5315
         while True:
-            time.sleep(100000000)
+            # NOTE(sileht): we cannot use threading.Event().wait(),
+            # threading.Thread().join(), or time.sleep() because of
+            # https://bugs.python.org/issue5315
+            # The select ensures we return to the main thread when
+            # we receive a signal.
+            try:
+                select.select([signal_pipe_r], [], [], 100000000)
+            except select.error as e:
+                if e.args[0] != 4:
+                    raise
 
     def _watch_parent_process(self):
         # This will block until the write end is closed when the parent
