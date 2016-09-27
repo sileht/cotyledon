@@ -219,12 +219,10 @@ class TestBuggyCotyledon(Base):
         self.assertNotIn('ERROR:cotyledon.tests.examples:time.sleep done',
                          lines)
         self.assertEqual([
-            b'INFO:cotyledon:Caught SIGTERM signal, graceful exiting of '
-            b'service buggy(0) [XXXX]',
             b'INFO:cotyledon:Graceful shutdown timeout (1) exceeded, '
             b'exiting buggy(0) [XXXX] now.',
             b'DEBUG:cotyledon:Shutdown finish'
-        ], lines[-3:])
+        ], lines[-2:])
 
     def test_graceful_timeout_kill(self):
         lines = self.get_lines(1)
