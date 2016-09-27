@@ -190,6 +190,12 @@ class TestCotyledon(Base):
         self.assertEqual([
             b'ERROR:cotyledon.tests.examples:heavy terminate',
             b'ERROR:cotyledon.tests.examples:heavy terminate',
+            b'INFO:cotyledon:Caught SIGTERM signal, graceful exiting of '
+            b'service heavy(0) [XXXX]',
+            b'INFO:cotyledon:Caught SIGTERM signal, graceful exiting of '
+            b'service heavy(1) [XXXX]',
+            b'INFO:cotyledon:Caught SIGTERM signal, graceful exiting of '
+            b'service light(0) [XXXX]',
             b'INFO:cotyledon:Parent process has died unexpectedly, '
             b'heavy(0) [XXXX] exiting',
             b'INFO:cotyledon:Parent process has died unexpectedly, '
@@ -206,7 +212,7 @@ class TestBuggyCotyledon(Base):
     @unittest.skipIf(sys.version_info[0] != 3,
                      "Buggy on py27, time.sleep returns before alarm callback "
                      "is called")
-    def test_graceful_timeout(self):
+    def test_graceful_timeout_term(self):
         lines = self.get_lines(1)
         childpid = self.get_pid(lines[0])
         self.subp.terminate()
@@ -218,10 +224,35 @@ class TestBuggyCotyledon(Base):
         self.assertNotIn('ERROR:cotyledon.tests.examples:time.sleep done',
                          lines)
         self.assertEqual([
+            b'INFO:cotyledon:Caught SIGTERM signal, graceful exiting of '
+            b'service buggy(0) [XXXX]',
             b'INFO:cotyledon:Graceful shutdown timeout (1) exceeded, '
             b'exiting buggy(0) [XXXX] now.',
             b'DEBUG:cotyledon:Shutdown finish'
-        ], lines[-2:])
+        ], lines[-3:])
+
+    @unittest.skipIf(sys.version_info[0] != 3,
+                     "Buggy on py27, time.sleep returns before alarm callback "
+                     "is called")
+    def test_graceful_timeout_kill(self):
+        lines = self.get_lines(1)
+        childpid = self.get_pid(lines[0])
+        self.subp.kill()
+        time.sleep(2)
+        self.assertEqual(-9, self.subp.poll())
+        self.assertRaises(OSError, os.kill, self.subp.pid, 0)
+        self.assertRaises(OSError, os.kill, childpid, 0)
+        lines = self.hide_pids(self.get_lines())
+        self.assertNotIn('ERROR:cotyledon.tests.examples:time.sleep done',
+                         lines)
+        self.assertEqual([
+            b'INFO:cotyledon:Parent process has died unexpectedly, buggy(0) '
+            b'[XXXX] exiting',
+            b'INFO:cotyledon:Caught SIGTERM signal, graceful exiting of '
+            b'service buggy(0) [XXXX]',
+            b'INFO:cotyledon:Graceful shutdown timeout (1) exceeded, '
+            b'exiting buggy(0) [XXXX] now.',
+        ], lines[-3:])
 
 
 class TestOsloCotyledon(Base):

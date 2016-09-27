@@ -144,15 +144,18 @@ class Service(object):
         with _exit_on_exception():
             self.reload()
 
-    def _clean_exit(self, *args, **kwargs):
+    def _terminate(self):
         signal.signal(signal.SIGTERM, signal.SIG_IGN)
         if self.graceful_shutdown_timeout > 0:
             signal.alarm(self.graceful_shutdown_timeout)
-        LOG.info('Caught SIGTERM signal, '
-                 'graceful exiting of service %s' % self._title)
         with _exit_on_exception():
             self.terminate()
             sys.exit(0)
+
+    def _clean_exit(self, *args, **kwargs):
+        LOG.info('Caught SIGTERM signal, '
+                 'graceful exiting of service %s' % self._title)
+        self._terminate()
 
     def _graceful_shutdown_timeout_cb(self, signum, frame):
         LOG.info('Graceful shutdown timeout (%d) exceeded, exiting %s now.' %
@@ -464,10 +467,7 @@ class ServiceManager(object):
         if self._current_process is not None:
             LOG.info('Parent process has died unexpectedly, %s exiting'
                      % self._current_process._title)
-            with _exit_on_exception():
-                self._current_process.terminate()
-                sys.exit(0)
-
+            os.kill(os.getpid(), signal.SIGTERM)
         else:
             os._exit(0)
 
