@@ -467,7 +467,11 @@ class ServiceManager(object):
             # The select ensures we return to the main thread when
             # we receive a signal.
             try:
-                select.select([signal_pipe_r], [], [], 100000000)
+                select.select([signal_pipe_r], [], [])[0]
+                try:
+                    os.read(signal_pipe_r, 1)
+                except IOError:
+                    pass
             except select.error as e:
                 if e.args[0] != 4:
                     raise
