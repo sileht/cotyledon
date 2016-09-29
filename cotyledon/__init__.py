@@ -97,15 +97,7 @@ class Service(object):
         self.worker_id = worker_id
         self.pid = os.getpid()
 
-        pname = os.path.basename(sys.argv[0])
-        self._title = "%(name)s(%(worker_id)d) [%(pid)d]" % dict(
-            name=self.name, worker_id=self.worker_id, pid=self.pid)
-
-        # Set process title
-        setproctitle.setproctitle(
-            "%(pname)s - %(name)s(%(worker_id)d)" % dict(
-                pname=pname, name=self.name,
-                worker_id=self.worker_id))
+        self._signal_lock = threading.Lock()
 
     def terminate(self):
         """Gracefully shutdown the service
@@ -128,7 +120,7 @@ class Service(object):
         :py:class:`ServiceRunner` will start a new fresh process for this
         service with the same worker_id.
         """
-        self._clean_exit()
+        os.kill(os.getpid(), signal.SIGTERM)
 
     def run(self):
         """Method representing the service activity
@@ -137,32 +129,119 @@ class Service(object):
         signal.
         """
 
-    def _run(self):
-        LOG.debug("Run service %s" % self._title)
-        with _exit_on_exception():
-            self.run()
+    # Helper to run application methods in a safety way when signal are
+    # received
 
-    def _reload(self, sig, frame):
-        with _exit_on_exception():
+    def _reload(self):
+        with _exit_on_exception(), self._signal_lock:
             self.reload()
 
     def _terminate(self):
-        signal.signal(signal.SIGTERM, signal.SIG_IGN)
-        if self.graceful_shutdown_timeout > 0:
-            signal.alarm(self.graceful_shutdown_timeout)
-        with _exit_on_exception():
+        with _exit_on_exception(), self._signal_lock:
             self.terminate()
             sys.exit(0)
 
-    def _clean_exit(self, *args, **kwargs):
-        LOG.info('Caught SIGTERM signal, '
-                 'graceful exiting of service %s' % self._title)
-        self._terminate()
+    def _run(self):
+        with _exit_on_exception():
+            self.run()
 
-    def _graceful_shutdown_timeout_cb(self, signum, frame):
+
+class _ChildProcess(object):
+    """This represent a child process
+
+    All methods implemented here, must run in the main threads
+    """
+
+    def __init__(self, config, worker_id):
+
+        # Setup signal fd, this allows signal to behave correctly
+        self.signal_pipe_r, signal_pipe_w = os.pipe()
+        flags = fcntl.fcntl(signal_pipe_w, fcntl.F_GETFL, 0)
+        flags = flags | os.O_NONBLOCK
+        fcntl.fcntl(signal_pipe_w, fcntl.F_SETFL, flags)
+        signal.set_wakeup_fd(signal_pipe_w)
+
+        self._signals_received = collections.deque()
+
+        signal.signal(signal.SIGHUP, self._signal_catcher)
+        signal.signal(signal.SIGTERM, self._signal_catcher)
+        signal.signal(signal.SIGALRM, self._alarm)
+
+        # Initialize the service process
+        args = tuple() if config.args is None else config.args
+        kwargs = dict() if config.kwargs is None else config.kwargs
+        self._service = config.service(worker_id, *args, **kwargs)
+        self._service._initialize(worker_id)
+
+        pname = os.path.basename(sys.argv[0])
+        self.title = "%(name)s(%(worker_id)d) [%(pid)d]" % dict(
+            name=self._service.name, worker_id=worker_id, pid=os.getpid())
+
+        # Set process title
+        setproctitle.setproctitle(
+            "%(pname)s - %(name)s(%(worker_id)d)" % dict(
+                pname=pname, name=self._service.name,
+                worker_id=worker_id))
+
+    def _alarm(self, sig, frame):
         LOG.info('Graceful shutdown timeout (%d) exceeded, exiting %s now.' %
-                 (self.graceful_shutdown_timeout, self._title))
+                 (self._service.graceful_shutdown_timeout,
+                  self.title))
         os._exit(1)
+
+    def _signal_catcher(self, sig, frame):
+        if sig == signal.SIGTERM:
+            self._signals_received.appendleft(sig)
+        else:
+            self._signals_received.append(sig)
+
+    def _run_signal_handlers(self):
+        while True:
+            try:
+                sig = self._signals_received.popleft()
+            except IndexError:
+                return
+
+            if sig == signal.SIGTERM:
+                LOG.info('Caught SIGTERM signal, '
+                         'graceful exiting of service %s' % self.title)
+                if self._service.graceful_shutdown_timeout > 0:
+                    signal.alarm(self._service.graceful_shutdown_timeout)
+                _spawn(self._service._terminate)
+            elif sig == signal.SIGHUP:
+                _spawn(self._service._reload)
+
+    def wait_forever(self):
+        # FIXME(sileht) useless public interface, application
+        # can run threads themself.
+        LOG.debug("Run service %s" % self.title)
+        _spawn(self._service._run)
+
+        # Wait forever
+        while True:
+            # Check if signals have been received
+            self._empty_signal_pipe()
+            self._run_signal_handlers()
+            # NOTE(sileht): we cannot use threading.Event().wait(),
+            # threading.Thread().join(), or time.sleep() because signals
+            # can be list when received by non-main threads
+            # (https://bugs.python.org/issue5315)
+            # So we use select.select() alone, we will receive EINTR or will
+            # read data from signal_r when signal is emitted and cpython calls
+            # PyErr_CheckSignals() to run signals handlers That looks perfect
+            # to ensure handlers are run and run in the main thread
+            try:
+                select.select([self.signal_pipe_r], [], [])
+            except select.error as e:
+                if e.args[0] != errno.EINTR:
+                    raise
+
+    def _empty_signal_pipe(self):
+        try:
+            while os.read(self.signal_pipe_r, 4096) == 4096:
+                pass
+        except (IOError, OSError):
+            pass
 
 
 class ServiceManager(object):
@@ -408,75 +487,14 @@ class ServiceManager(object):
 
         # Create and run a new service
         with _exit_on_exception():
-
-            # Setup signal fd, this allows signal to behave correctly
-            signal_pipe_r, signal_pipe_w = os.pipe()
-            flags = fcntl.fcntl(signal_pipe_w, fcntl.F_GETFL, 0)
-            flags = flags | os.O_NONBLOCK
-            fcntl.fcntl(signal_pipe_w, fcntl.F_SETFL, flags)
-            signal.set_wakeup_fd(signal_pipe_w)
-
-            catched_signals = {
-                signal.SIGHUP: None,
-                signal.SIGTERM: None,
-                signal.SIGALRM: None,
-            }
-
-            def signal_delayer(sig, frame):
-                signal.signal(signal.SIGTERM, signal.SIG_IGN)
-                LOG.info('Caught signal (%s) during service initialisation, '
-                         'delaying it' % sig)
-                catched_signals[sig] = frame
-
-            # Setup temporary signals
-            signal.signal(signal.SIGHUP, signal_delayer)
-            signal.signal(signal.SIGTERM, signal_delayer)
-            signal.signal(signal.SIGALRM, signal_delayer)
-
-            # Initialize the service process
-            args = tuple() if config.args is None else config.args
-            kwargs = dict() if config.kwargs is None else config.kwargs
-            self._current_process = config.service(worker_id, *args, **kwargs)
-            self._current_process._initialize(worker_id)
-
-            # Setup final signals
-            if catched_signals[signal.SIGALRM] is not None:
-                self._current_process._graceful_shutdown_timeout_cb(
-                    signal.SIGALRM, catched_signals[signal.SIGALRM])
-            signal.signal(signal.SIGALRM,
-                          self._current_process._graceful_shutdown_timeout_cb)
-
-            if catched_signals[signal.SIGTERM] is not None:
-                self._current_process._clean_exit(
-                    signal.SIGTERM, catched_signals[signal.SIGTERM])
-            signal.signal(signal.SIGTERM, self._current_process._clean_exit)
-
-            if catched_signals[signal.SIGHUP] is not None:
-                self._current_process._reload(
-                    signal.SIGHUP, catched_signals[signal.SIGHUP])
-            signal.signal(signal.SIGHUP, self._current_process._reload)
-
-            # Start the main thread
-            _spawn(self._current_process._run)
-
-        # Wait forever
-        while True:
-            # NOTE(sileht): we cannot use threading.Event().wait(),
-            # threading.Thread().join(), or time.sleep() because of
-            # https://bugs.python.org/issue5315
-            # The select ensures we return to the main thread when
-            # we receive a signal.
-            try:
-                select.select([signal_pipe_r], [], [])[0]
-            except select.error as e:
-                if e.args[0] != 4:
-                    raise
-            try:
-                os.read(signal_pipe_r, 1)
-            except IOError:
-                pass
+            self._current_process = _ChildProcess(config, worker_id)
+            self._current_process.wait_forever()
 
     def _watch_parent_process(self):
+        # NOTE(sileht): This is the only method that located in this class but
+        # run into the child process. We do this to be able to stop the process
+        # before the service have started.
+
         # This will block until the write end is closed when the parent
         # dies unexpectedly
         try:
@@ -484,9 +502,11 @@ class ServiceManager(object):
         except EnvironmentError:
             pass
 
+        # FIXME(sileht): accessing self._current_process is not really
+        # thread-safe.
         if self._current_process is not None:
             LOG.info('Parent process has died unexpectedly, %s exiting'
-                     % self._current_process._title)
+                     % self._current_process.title)
             os.kill(os.getpid(), signal.SIGTERM)
         else:
             os._exit(0)
