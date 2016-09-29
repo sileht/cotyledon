@@ -48,6 +48,10 @@ def _spawn(target):
     return t
 
 
+def get_process_name():
+    return os.path.basename(sys.argv[0])
+
+
 @contextlib.contextmanager
 def _exit_on_exception():
     try:
@@ -173,14 +177,13 @@ class _ChildProcess(object):
         self._service = config.service(worker_id, *args, **kwargs)
         self._service._initialize(worker_id)
 
-        pname = os.path.basename(sys.argv[0])
         self.title = "%(name)s(%(worker_id)d) [%(pid)d]" % dict(
             name=self._service.name, worker_id=worker_id, pid=os.getpid())
 
         # Set process title
         setproctitle.setproctitle(
-            "%(pname)s - %(name)s(%(worker_id)d)" % dict(
-                pname=pname, name=self._service.name,
+            "%(pname)s: %(name)s worker(%(worker_id)d)" % dict(
+                pname=get_process_name(), name=self._service.name,
                 worker_id=worker_id))
 
     def _alarm(self, sig, frame):
@@ -311,6 +314,9 @@ class ServiceManager(object):
         self._services = []
         self._forktimes = []
         self._current_process = None
+
+        setproctitle.setproctitle("%s: master process [%s]" %
+                                  (get_process_name(), " ".join(sys.argv)))
 
         # Try to create a session id if possible
         try:
