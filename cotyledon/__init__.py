@@ -137,8 +137,12 @@ class Service(object):
     # received
 
     def _reload(self):
-        with _exit_on_exception(), self._signal_lock:
-            self.reload()
+        with _exit_on_exception():
+            if self._signal_lock.acquire(False):
+                try:
+                    self.reload()
+                finally:
+                    self._signal_lock.release()
 
     def _terminate(self):
         with _exit_on_exception(), self._signal_lock:
