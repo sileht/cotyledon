@@ -169,7 +169,7 @@ class _ChildProcess(object):
 
         signal.signal(signal.SIGHUP, self._signal_catcher)
         signal.signal(signal.SIGTERM, self._signal_catcher)
-        signal.signal(signal.SIGALRM, self._alarm)
+        signal.signal(signal.SIGALRM, self._signal_catcher)
 
         # Initialize the service process
         args = tuple() if config.args is None else config.args
@@ -186,14 +186,8 @@ class _ChildProcess(object):
                 pname=get_process_name(), name=self._service.name,
                 worker_id=worker_id))
 
-    def _alarm(self, sig, frame):
-        LOG.info('Graceful shutdown timeout (%d) exceeded, exiting %s now.' %
-                 (self._service.graceful_shutdown_timeout,
-                  self.title))
-        os._exit(1)
-
     def _signal_catcher(self, sig, frame):
-        if sig == signal.SIGTERM:
+        if sig in [signal.SIGALRM, signal.SIGTERM]:
             self._signals_received.appendleft(sig)
         else:
             self._signals_received.append(sig)
@@ -207,7 +201,13 @@ class _ChildProcess(object):
 
             # Code below must not block to return to select.select() and catch
             # next signals
-            if sig == signal.SIGTERM:
+            if sig == signal.SIGALRM:
+                LOG.info('Graceful shutdown timeout (%d) exceeded, '
+                         'exiting %s now.' %
+                         (self._service.graceful_shutdown_timeout,
+                          self.title))
+                os._exit(1)
+            elif sig == signal.SIGTERM:
                 LOG.info('Caught SIGTERM signal, '
                          'graceful exiting of service %s' % self.title)
                 if self._service.graceful_shutdown_timeout > 0:
