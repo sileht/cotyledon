@@ -30,7 +30,7 @@ Why Cotyledon
 This library is mainly used in Openstack Telemetry projects for now. In the past
 oslo.service was used. But our projects don't want to use eventlet anymore.
 
-oslo.service is written on top of eventlet to provide to main features:
+oslo.service is written on top of eventlet to provide two main features:
 
 * periodic tasks
 * workers processes management

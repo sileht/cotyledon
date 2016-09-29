@@ -202,6 +202,8 @@ class _ChildProcess(object):
             except IndexError:
                 return
 
+            # Code below must not block to return to select.select() and catch
+            # next signals
             if sig == signal.SIGTERM:
                 LOG.info('Caught SIGTERM signal, '
                          'graceful exiting of service %s' % self.title)
@@ -224,7 +226,7 @@ class _ChildProcess(object):
             self._run_signal_handlers()
             # NOTE(sileht): we cannot use threading.Event().wait(),
             # threading.Thread().join(), or time.sleep() because signals
-            # can be list when received by non-main threads
+            # can be missed when received by non-main threads
             # (https://bugs.python.org/issue5315)
             # So we use select.select() alone, we will receive EINTR or will
             # read data from signal_r when signal is emitted and cpython calls
