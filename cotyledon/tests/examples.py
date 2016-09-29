@@ -57,6 +57,14 @@ class BuggyService(cotyledon.Service):
         LOG.error("time.sleep done")
 
 
+class Control1Service(cotyledon.Service):
+    name = "control-1"
+
+
+class Control2Service(cotyledon.Service):
+    name = "control-2"
+
+
 class OsloService(cotyledon.Service):
     name = "oslo"
 
@@ -86,6 +94,14 @@ def oslo_app():
     logging.basicConfig(level=logging.DEBUG)
     p = cotyledon.ServiceManager()
     p.add(OsloService)
+    p.run()
+
+
+def control_app():
+    logging.basicConfig(level=logging.DEBUG)
+    p = cotyledon.ServiceManager(control_socket="./control")
+    p.add(Control1Service, workers=2, dynamic=True)
+    p.add(Control2Service, workers=1)
     p.run()
 
 

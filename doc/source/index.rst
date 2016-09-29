@@ -14,7 +14,8 @@ Contents:
    readme
    installation
    api
-   examples
+   code-examples
+   control-examples
    contributing
 
 Indices and tables

@@ -10,6 +10,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import argparse
 import collections
 import contextlib
 import errno
@@ -34,10 +35,12 @@ SIGNAL_TO_NAME = dict((getattr(signal, name), name) for name in dir(signal)
 
 
 class _ServiceConfig(object):
-    def __init__(self, service, workers, args, kwargs):
+    def __init__(self, service, workers, dynamic, args, kwargs):
         self.service = service
         self.workers = workers
+        self.default_workers = workers
         self.args = args
+        self.dynamic = dynamic
         self.kwargs = kwargs
 
 
@@ -96,12 +99,18 @@ class Service(object):
             return
         self._initialized = True
 
-        if self.name is None:
-            self.name = self.__class__.__name__
+        self.name = self._get_name()
         self.worker_id = worker_id
         self.pid = os.getpid()
 
         self._signal_lock = threading.Lock()
+
+    @classmethod
+    def _get_name(cls):
+        if cls.name is None:
+            return cls.__class__.__name__
+        else:
+            return cls.name
 
     def terminate(self):
         """Gracefully shutdown the service
@@ -305,7 +314,7 @@ class ServiceManager(object):
 
     _process_runner_already_created = False
 
-    def __init__(self, wait_interval=0.01):
+    def __init__(self, wait_interval=0.01, control_socket=None):
         """Creates the ServiceManager object
 
         :param wait_interval: time between each new process spawn
@@ -325,6 +334,7 @@ class ServiceManager(object):
         self._services = []
         self._forktimes = []
         self._current_process = None
+        self._control_socket = None
 
         setproctitle.setproctitle("%s: master process [%s]" %
                                   (get_process_name(), " ".join(sys.argv)))
@@ -342,19 +352,25 @@ class ServiceManager(object):
         signal.signal(signal.SIGALRM, self._alarm_exit)
         signal.signal(signal.SIGHUP, self._reload_services)
 
-    def add(self, service, workers=1, args=None, kwargs=None):
+        if control_socket:
+            self._control_socket = self._setup_control_socket(control_socket)
+
+    def add(self, service, workers=1, dynamic=False, args=None, kwargs=None):
         """Add a new service to the ServiceManager
 
         :param service: callable that return an instance of :py:class:`Service`
         :type service: callable
         :param workers: number of processes/workers for this service
         :type workers: int
+        :param dynamic: worker number can be live adjusted
+        :type dynamic: bool
         :param args: additional positional arguments for this service
         :type args: tuple
         :param kwargs: additional keywoard arguments for this service
         :type kwargs: dict
         """
-        self._services.append(_ServiceConfig(service, workers, args, kwargs))
+        self._services.append(_ServiceConfig(service, workers, dynamic,
+                                             args, kwargs))
 
     def run(self):
         """Start and supervise services
@@ -366,9 +382,13 @@ class ServiceManager(object):
         """
 
         self._systemd_notify_once()
+
+        if self._control_socket is not None:
+            _spawn(self._listen_control_socket)
+
         while not self._shutdown.is_set():
             info = self._wait_service()
-            if info is not None:
+            if info is not None and info[1] < info[0].workers:
                 # Restart this particular service
                 conf, worker_id = info
             else:
@@ -376,6 +396,11 @@ class ServiceManager(object):
                     if len(self._running_services[conf]) < conf.workers:
                         worker_id = len(self._running_services[conf])
                         break
+                    elif len(self._running_services[conf]) > conf.workers:
+                        for pid, _id in self._running_services[conf].items():
+                            if _id >= conf.workers:
+                                os.kill(pid, signal.SIGTERM)
+                        continue
                 else:
                     time.sleep(self._wait_interval)
                     continue
@@ -499,6 +524,10 @@ class ServiceManager(object):
         # Close write to ensure only parent has it open
         os.close(self.writepipe)
 
+        # No need of this socket in children
+        if self._control_socket is not None:
+            self._control_socket.close()
+
         _spawn(self._watch_parent_process)
 
         # Reseed random number generator
@@ -553,3 +582,174 @@ class ServiceManager(object):
                     del os.environ['NOTIFY_SOCKET']
                 except EnvironmentError:
                     LOG.debug("Systemd notification failed", exc_info=True)
+
+    @staticmethod
+    def _setup_control_socket(address):
+        # Make sure the socket does not already exist
+        try:
+            os.unlink(address)
+        except OSError:
+            if os.path.exists(address):
+                raise
+
+        sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        sock.bind(address)
+        LOG.info("Bind %s for control socket" % address)
+        return sock
+
+    def _listen_control_socket(self):
+        LOG.info("Waiting for command on control socket")
+        self._control_socket.listen(1)
+        while True:
+            connection, client_address = self._control_socket.accept()
+            try:
+                while True:
+                    connection.sendall("%s> " % get_process_name())
+                    data = connection.recv(4096)
+                    if not data:
+                        # Got EOF
+                        break
+                    data = data.strip()
+                    if not data:
+                        # Got empty line
+                        continue
+                    result = self._parse(data.split(" "))
+                    if result is None:
+                        break
+                    connection.sendall(result + "\n")
+            except socket.error as e:
+                if e.errno == errno.EPIPE:
+                    # Client left, just wait another one
+                    continue
+            except BaseException:
+                LOG.exception("Unexpected control socket error")
+            finally:
+                connection.close()
+
+    def _parse(self, data):
+        try:
+            parser = ControlArgumentParser()
+            args = parser.parse_args(data)
+            if args.command == "exit":
+                return None
+            if args.command == "help":
+                if args.action:
+                    parser.parse_args([args.action, "--help"])
+                else:
+                    parser.print_help()
+                parser.exit()
+
+            elif args.command == "shutdown":
+                os.kill(os.getpid(), signal.SIGTERM)
+                return "signal SIGTERM sent to master process"
+
+            elif args.command == "abort":
+                os.kill(os.getpid(), signal.SIGINT)
+                return "signal SIGINT sent to master process"
+
+            elif args.command in ["reload", "restart"]:
+                if args.command == "reload" and not args.name:
+                    os.kill(os.getpid(), signal.SIGHUP)
+                    return "signal SIGHUP sent to master process"
+                else:
+                    lines = []
+                    sig = {"reload": signal.SIGHUP,
+                           "restart": signal.SIGTERM}.get(args.command)
+                    for conf, info in self._running_services.items():
+                        if args.name not in [None, conf.service._get_name()]:
+                            continue
+                        for pid, wid in info.items():
+                            if args.id not in [None, wid]:
+                                continue
+                            os.kill(pid, sig)
+                            lines.append("signal %s sent to worker %d" %
+                                         (SIGNAL_TO_NAME.get(sig), wid))
+                    return "\n".join(lines)
+
+            elif args.command == "list":
+                lines = []
+                for conf, info in self._running_services.items():
+                    lines.append("service '%s' %d workers" % (
+                        conf.service._get_name(), conf.workers))
+                    for pid, n in info.items():
+                        lines.append("- worker(%d): %d" % (n, pid))
+                return "\n".join(lines)
+
+            elif args.command == "worker":
+                if args.number != "default":
+                    try:
+                        number = int(args.number)
+                    except ValueError as e:
+                        raise InvalidControlCommand(str(e))
+                for conf, info in self._running_services.items():
+                    if conf.service._get_name() == args.name:
+                        if not conf.dynamic:
+                            raise InvalidControlCommand(
+                                "worker adjustement in not allowed on service "
+                                "%s" % args.name)
+                        if args.number == "default":
+                            workers = conf.default_workers
+                        elif args.number[0] in ["-", "+"]:
+                            workers = len(info) + number
+                        else:
+                            workers = number
+                        if workers < 0:
+                            raise InvalidControlCommand(
+                                "worker number must be >= 0")
+                        conf.workers = workers
+                        return ("service '%s' have now %d workers" %
+                                (args.name, workers))
+                else:
+                    raise InvalidControlCommand("No service named %s"
+                                                % args.name)
+        except InvalidControlCommand as e:
+            return str(e)
+
+
+class InvalidControlCommand(Exception):
+    pass
+
+
+class NoExitArgumentParser(argparse.ArgumentParser):
+    def __init__(self, *args, **kwargs):
+        super(NoExitArgumentParser, self).__init__(*args, **kwargs)
+        self.messages = []
+
+    def _print_message(self, message, file=None):
+        # NOTE(sileht): yeah that weird but argparse.ArgumentParser
+        # write everything in stderr/stdout, and we want to send all of that in
+        # a socket, so we can override this private method or mock stderr and
+        # stdout. I have chossen that one for now.
+        self.messages.append(message)
+
+    def exit(self, status=0, message=None):
+        if message is not None:
+            self.messages.append(message)
+        raise InvalidControlCommand("\n".join(self.messages))
+
+    def error(self, message):
+        self.messages.append(message)
+        raise InvalidControlCommand("\n".join(self.messages))
+
+
+class ControlArgumentParser(NoExitArgumentParser):
+    def __init__(self):
+        super(ControlArgumentParser, self).__init__()
+        subparsers = self.add_subparsers(dest='command',
+                                         parser_class=NoExitArgumentParser)
+        help = subparsers.add_parser("help")
+        help.add_argument("action", nargs="?")
+        subparsers.add_parser("list")
+        subparsers.add_parser("exit")
+        reload = subparsers.add_parser("reload")
+        reload.add_argument("name", help="service name", nargs="?")
+        reload.add_argument("id", help="worker id", nargs="?", type=int)
+        restart = subparsers.add_parser("restart")
+        restart.add_argument("name", help="service name", nargs="?")
+        restart.add_argument("id", help="worker id", nargs="?", type=int)
+
+        subparsers.add_parser("shutdown")
+        subparsers.add_parser("abort")
+        worker = subparsers.add_parser("worker")
+        worker.add_argument("name", help="service name")
+        worker.add_argument("number", help="worker number (5/-2/+5)")
