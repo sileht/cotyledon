@@ -179,6 +179,25 @@ class TestCotyledon(Base):
         ], lines)
         self.assert_everything_is_dead(1)
 
+    def test_sighup(self):
+        self.assert_everything_has_started()
+        os.kill(self.subp.pid, signal.SIGHUP)
+        time.sleep(0.5)
+        lines = sorted(self.get_lines(5))
+        lines = self.hide_pids(lines)
+        self.assertEqual([
+            b'DEBUG:cotyledon:Run service light(0) [XXXX]',
+            b'ERROR:cotyledon.tests.examples:heavy reload',
+            b'ERROR:cotyledon.tests.examples:heavy reload',
+            b'INFO:cotyledon:Caught SIGTERM signal, '
+            b'graceful exiting of service light(0) [XXXX]',
+            b'INFO:cotyledon:Child XXXX exited with status 0'
+        ], lines)
+
+        os.kill(self.subp.pid, signal.SIGINT)
+        time.sleep(0.5)
+        self.assert_everything_is_dead(1)
+
     def test_sigkill(self):
         self.assert_everything_has_started()
         self.subp.kill()
