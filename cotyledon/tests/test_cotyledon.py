@@ -156,6 +156,7 @@ class TestCotyledon(Base):
             b'DEBUG:cotyledon:Waiting services to terminate',
             b'ERROR:cotyledon.tests.examples:heavy terminate',
             b'ERROR:cotyledon.tests.examples:heavy terminate',
+            b'ERROR:cotyledon.tests.examples:master terminate hook',
             b'INFO:cotyledon:Caught SIGTERM signal, '
             b'graceful exiting of master process',
             b'INFO:cotyledon:Caught SIGTERM signal, '
@@ -183,12 +184,13 @@ class TestCotyledon(Base):
         self.assert_everything_has_started()
         os.kill(self.subp.pid, signal.SIGHUP)
         time.sleep(0.5)
-        lines = sorted(self.get_lines(5))
+        lines = sorted(self.get_lines(6))
         lines = self.hide_pids(lines)
         self.assertEqual([
             b'DEBUG:cotyledon:Run service light(0) [XXXX]',
             b'ERROR:cotyledon.tests.examples:heavy reload',
             b'ERROR:cotyledon.tests.examples:heavy reload',
+            b'ERROR:cotyledon.tests.examples:master reload hook',
             b'INFO:cotyledon:Caught SIGTERM signal, '
             b'graceful exiting of service light(0) [XXXX]',
             b'INFO:cotyledon:Child XXXX exited with status 0'

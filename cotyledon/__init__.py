@@ -359,6 +359,23 @@ class ServiceManager(_SignalManager):
 
         signal.signal(signal.SIGINT, self._fast_exit)
 
+        # Register
+        self.register_hooks()
+
+    def register_hooks(self, on_terminate=None, on_reload=None):
+        """Register hooks method
+
+        :param on_terminate: method called on SIGTERM
+        :type on_terminate: callable
+        :param on_reload: method called on SIGHUP
+        :type on_reload: callable
+        """
+        self._on_terminate = on_terminate or self._default_callback
+        self._on_reload = on_reload or self._default_callback
+
+    def _default_callback(self):
+        pass
+
     def add(self, service, workers=1, args=None, kwargs=None):
         """Add a new service to the ServiceManager
 
@@ -426,6 +443,11 @@ class ServiceManager(_SignalManager):
             self._reload()
 
     def _reload(self):
+        try:
+            self._on_reload()
+        except Exception:
+            LOG.exception("ServiceManager raised exception during reload")
+
         # Reset forktimes to respawn services quickly
         self._forktimes = []
         signal.signal(signal.SIGHUP, signal.SIG_IGN)
@@ -434,6 +456,11 @@ class ServiceManager(_SignalManager):
 
     def _shutdown(self):
         LOG.info('Caught SIGTERM signal, graceful exiting of master process')
+        try:
+            self._on_terminate()
+        except Exception:
+            LOG.exception("ServiceManager raised exception during shutdown")
+
         LOG.debug("Killing services with signal SIGTERM")
         signal.signal(signal.SIGTERM, signal.SIG_IGN)
         os.killpg(0, signal.SIGTERM)

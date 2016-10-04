@@ -67,11 +67,21 @@ class OsloService(cotyledon.Service):
         oslo_config_glue.load_options(self, conf)
 
 
+def on_terminate():
+    LOG.error("master terminate hook")
+
+
+def on_reload():
+    LOG.error("master reload hook")
+
+
 def example_app():
     logging.basicConfig(level=logging.DEBUG)
     p = cotyledon.ServiceManager()
     p.add(FullService, 2)
-    p.add(LigthService)
+    service_id = p.add(LigthService, 5)
+    p.reconfigure(service_id, 1)
+    p.register_hooks(on_terminate, on_reload)
     p.run()
 
 
