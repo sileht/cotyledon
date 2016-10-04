@@ -27,8 +27,8 @@ LOG = logging.getLogger(__name__)
 class Service(object):
     """Base class for a service
 
-    This class will be executed in a new child process
-    :py:class:`ServiceWorker` of a :py:class:`ServiceRunner`. It registers
+    This class will be executed in a new child process/worker
+    :py:class:`ServiceWorker` of a :py:class:`ServiceManager`. It registers
     signals to manager the reloading and the ending of the process.
 
     Methods :py:meth:`run`, :py:meth:`terminate` and :py:meth:`reload` are
@@ -74,6 +74,8 @@ class Service(object):
         To customize the exit code, the :py:class:`SystemExit` exception can be
         used.
 
+        Any exceptions raised by this method will be logged and the worker will
+        exit with status 1.
         """
 
     def reload(self):
@@ -84,6 +86,9 @@ class Service(object):
         If not implemented the process will just end with status 0 and
         :py:class:`ServiceRunner` will start a new fresh process for this
         service with the same worker_id.
+
+        Any exceptions raised by this method will be logged and the worker will
+        exit with status 1.
         """
         os.kill(os.getpid(), signal.SIGTERM)
 
@@ -92,6 +97,11 @@ class Service(object):
 
         If not implemented the process will just wait to receive an ending
         signal.
+
+        This method is ran into the thread and can block or return as needed
+
+        Any exceptions raised by this method will be logged and the worker will
+        exit with status 1.
         """
 
     # Helper to run application methods in a safety way when signal are
@@ -113,6 +123,15 @@ class Service(object):
     def _run(self):
         with _utils.exit_on_exception():
             self.run()
+
+
+class ServiceConfig(object):
+    def __init__(self, service_id, service, workers, args, kwargs):
+        self.service = service
+        self.workers = workers
+        self.args = args
+        self.kwargs = kwargs
+        self.service_id = service_id
 
 
 class ServiceWorker(_utils.SignalManager):
@@ -161,8 +180,6 @@ class ServiceWorker(_utils.SignalManager):
             _utils.spawn(self._service._reload)
 
     def wait_forever(self):
-        # FIXME(sileht) useless public interface, application
-        # can run threads themself.
         LOG.debug("Run service %s" % self.title)
         _utils.spawn(self._service._run)
         super(ServiceWorker, self)._wait_forever()

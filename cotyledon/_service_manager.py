@@ -30,15 +30,6 @@ from cotyledon import _utils
 LOG = logging.getLogger(__name__)
 
 
-class _ServiceConfig(object):
-    def __init__(self, service_id, service, workers, args, kwargs):
-        self.service = service
-        self.workers = workers
-        self.args = args
-        self.kwargs = kwargs
-        self.service_id = service_id
-
-
 class ServiceManager(_utils.SignalManager):
     """Manage lifetimes of services
 
@@ -47,7 +38,8 @@ class ServiceManager(_utils.SignalManager):
     It also propagate some signals (SIGTERM, SIGALRM, SIGINT and SIGHUP) to
     them.
 
-    Each child process runs an instance of a :py:class:`Service`.
+    Each child process (:py:class:`ServiceWorker`) runs an instance of
+    a :py:class:`Service`.
 
     An application must create only one :py:class:`ServiceManager` class and
     use :py:meth:`ServiceManager.run()` as main loop of the application.
@@ -73,10 +65,19 @@ class ServiceManager(_utils.SignalManager):
             def reload(self):
                 restart_my_job()
 
-        conf = {'foobar': 2}
-        sr = ServiceManager()
-        sr.add(MyService, 5, conf)
-        sr.run()
+
+        class MyManager(ServiceManager):
+            def __init__(self):
+                super(MyManager, self).__init__()
+                self.register_hooks(on_reload=selfreload)
+
+                conf = {'foobar': 2}
+                self.service_id = self.add(MyService, 5, conf)
+
+            def reload(self):
+                self.reconfigure(self.service_id, 10)
+
+        MyManager().run()
 
     This will create 5 children processes running the service MyService.
 
@@ -93,7 +94,7 @@ class ServiceManager(_utils.SignalManager):
         """
 
         if self._process_runner_already_created:
-            raise RuntimeError("Only one instance of ProcessRunner per "
+            raise RuntimeError("Only one instance of ServiceManager per "
                                "application is allowed")
         ServiceManager._process_runner_already_created = True
         super(ServiceManager, self).__init__(wait_interval)
@@ -148,12 +149,11 @@ class ServiceManager(_utils.SignalManager):
         :type kwargs: dict
 
         :return: a service id
-        :type return: uuid.uuid4
+        :rtype: uuid.uuid4
         """
         service_id = uuid.uuid4()
-        self._services[service_id] = _ServiceConfig(service_id,
-                                                    service, workers,
-                                                    args, kwargs)
+        self._services[service_id] = _service.ServiceConfig(
+            service_id, service, workers, args, kwargs)
         return service_id
 
     def reconfigure(self, service_id, workers):
@@ -163,6 +163,7 @@ class ServiceManager(_utils.SignalManager):
         :type service_id: uuid.uuid4
         :param workers: number of processes/workers for this service
         :type workers: int
+        :raises: ValueError
         """
         try:
             sc = self._services[service_id]
@@ -174,7 +175,7 @@ class ServiceManager(_utils.SignalManager):
             self._forktimes = []
 
     def run(self):
-        """Start and supervise services
+        """Start and supervise services workers
 
         This method will start and supervise all children processes
         until the master process asked to shutdown by a SIGTERM.

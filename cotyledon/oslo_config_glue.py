@@ -31,7 +31,13 @@ service_opts = [
 
 
 def load_options(service, conf):
-    """Load some service configuration from oslo config object."""
+    """Load some service configuration from oslo config object.
+
+    :param service: Service instance
+    :type service: cotyledon.Service
+    :param conf: Oslo Config object
+    :type conf: oslo_config.ConfigOpts()
+    """
     conf.register_opts(service_opts)
     service.graceful_shutdown_timeout = conf.graceful_shutdown_timeout
     if conf.log_options:
