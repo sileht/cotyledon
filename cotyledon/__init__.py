@@ -175,13 +175,6 @@ class _ChildProcess(object):
         signal.signal(signal.SIGTERM, self._signal_catcher)
         signal.signal(signal.SIGALRM, self._signal_catcher)
 
-        # NOTE(sileht): Set SA_RESTART to "limit" EINTR occurrences.
-        # Even the doc said it avoids EINTR, in python this is not really true
-        # only pthread_sigmask can do that and this is not available in python
-        signal.siginterrupt(signal.SIGHUP, False)
-        signal.siginterrupt(signal.SIGTERM, False)
-        signal.siginterrupt(signal.SIGALRM, False)
-
         # Initialize the service process
         args = tuple() if config.args is None else config.args
         kwargs = dict() if config.kwargs is None else config.kwargs
