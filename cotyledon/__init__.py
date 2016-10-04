@@ -23,6 +23,7 @@ import socket
 import sys
 import threading
 import time
+import uuid
 
 import setproctitle
 
@@ -34,11 +35,12 @@ SIGNAL_TO_NAME = dict((getattr(signal, name), name) for name in dir(signal)
 
 
 class _ServiceConfig(object):
-    def __init__(self, service, workers, args, kwargs):
+    def __init__(self, service_id, service, workers, args, kwargs):
         self.service = service
         self.workers = workers
         self.args = args
         self.kwargs = kwargs
+        self.service_id = service_id
 
 
 def _spawn(target):
@@ -314,8 +316,9 @@ class ServiceManager(object):
         self._wait_interval = wait_interval
         self._shutdown = threading.Event()
 
+        # We use OrderedDict to start services in adding order
+        self._services = collections.OrderedDict()
         self._running_services = collections.defaultdict(dict)
-        self._services = []
         self._forktimes = []
         self._current_process = None
 
@@ -346,8 +349,25 @@ class ServiceManager(object):
         :type args: tuple
         :param kwargs: additional keywoard arguments for this service
         :type kwargs: dict
+
+        :return: a service id
+        :type return: uuid.uuid4
         """
-        self._services.append(_ServiceConfig(service, workers, args, kwargs))
+        service_id = uuid.uuid4()
+        self._services[service_id] = _ServiceConfig(service_id,
+                                                    service, workers,
+                                                    args, kwargs)
+        return service_id
+
+    def reconfigure(self, service_id, workers):
+        try:
+            sc = self._services[service_id]
+        except IndexError:
+            raise ValueError("%s service id doesn't exists" % service_id)
+        else:
+            sc.workers = workers
+            # Reset forktimes to respawn services quickly
+            self._forktimes = []
 
     def run(self):
         """Start and supervise services
@@ -360,21 +380,12 @@ class ServiceManager(object):
 
         self._systemd_notify_once()
         while not self._shutdown.is_set():
-            info = self._wait_service()
-            if info is not None:
-                # Restart this particular service
-                conf, worker_id = info
+            dead_pid = self._get_last_pid_died()
+            if dead_pid is None:
+                self._adjust_workers()
+                time.sleep(self._wait_interval)
             else:
-                for conf in self._services:
-                    if len(self._running_services[conf]) < conf.workers:
-                        worker_id = len(self._running_services[conf])
-                        break
-                else:
-                    time.sleep(self._wait_interval)
-                    continue
-
-            pid = self._start_service(conf, worker_id)
-            self._running_services[conf][pid] = worker_id
+                self._restart_dead_worker(dead_pid)
 
         try:
             self.terminate()
@@ -387,8 +398,8 @@ class ServiceManager(object):
         LOG.debug("Waiting services to terminate")
         # NOTE(sileht): We follow the termination of our children only
         # so we can't use waitpid(0, 0)
-        for conf in self._services:
-            for pid in self._running_services[conf]:
+        for pids in self._running_services.values():
+            for pid in pids:
                 try:
                     os.waitpid(pid, 0)
                 except OSError as e:
@@ -404,7 +415,27 @@ class ServiceManager(object):
     def terminate():
         pass
 
-    def _wait_service(self):
+    def _adjust_workers(self):
+        for service_id, conf in self._services.items():
+            running_workers = len(self._running_services[service_id])
+            if running_workers < conf.workers:
+                for worker_id in range(running_workers, conf.workers):
+                    self._start_worker(service_id, worker_id)
+            elif running_workers > conf.workers:
+                for worker_id in range(running_workers, conf.workers):
+                    self._stop_worker(service_id, worker_id)
+
+    def _restart_dead_worker(self, dead_pid):
+        for service_id in self._running_services:
+            service_info = list(self._running_services[service_id].items())
+            for pid, worker_id in service_info:
+                if pid == dead_pid:
+                    del self._running_services[service_id][pid]
+                    self._start_worker(service_id, worker_id)
+                    return
+        LOG.error('pid %d not in service known pids list', dead_pid)
+
+    def _get_last_pid_died(self):
         """Return the last died service or None"""
         try:
             # Don't block if no child processes have exited
@@ -424,12 +455,7 @@ class ServiceManager(object):
             code = os.WEXITSTATUS(status)
             LOG.info('Child %(pid)d exited with status %(code)d',
                      dict(pid=pid, code=code))
-
-        for conf in self._running_services:
-            if pid in self._running_services[conf]:
-                return conf, self._running_services[conf].pop(pid)
-
-        LOG.error('pid %d not in service list', pid)
+        return pid
 
     def _reload_services(self, *args, **kwargs):
         if self._shutdown.is_set():
@@ -468,7 +494,7 @@ class ServiceManager(object):
         # start up quickly but ensure we don't fork off children that
         # die instantly too quickly.
 
-        expected_children = sum(s.workers for s in self._services)
+        expected_children = sum(s.workers for s in self._services.values())
         if len(self._forktimes) > expected_children:
             if time.time() - self._forktimes[0] < expected_children:
                 LOG.info('Forking too fast, sleeping')
@@ -476,12 +502,13 @@ class ServiceManager(object):
                 self._forktimes.pop(0)
                 self._forktimes.append(time.time())
 
-    def _start_service(self, config, worker_id):
+    def _start_worker(self, service_id, worker_id):
         self._slowdown_respawn_if_needed()
 
         pid = os.fork()
         if pid != 0:
-            return pid
+            self._running_services[service_id][pid] = worker_id
+            return
 
         # reset parent signals
         signal.signal(signal.SIGINT, signal.SIG_DFL)
@@ -499,8 +526,14 @@ class ServiceManager(object):
 
         # Create and run a new service
         with _exit_on_exception():
-            self._current_process = _ChildProcess(config, worker_id)
+            self._current_process = _ChildProcess(self._services[service_id],
+                                                  worker_id)
             self._current_process.wait_forever()
+
+    def _stop_worker(self, service_id, worker_id):
+        for pid, _id in self._running_services[service_id].items():
+            if _id == worker_id:
+                os.kill(pid, signal.SIGTERM)
 
     def _watch_parent_process(self):
         # NOTE(sileht): This is the only method that located in this class but
