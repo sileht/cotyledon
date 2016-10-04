@@ -10,7 +10,15 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import logging
+import os
+import signal
 
-# Public API
-from cotyledon._service import Service  # noqa
-from cotyledon._service_manager import ServiceManager  # noqa
+import setproctitle
+
+from cotyledon import _utils
+
+LOG = logging.getLogger(__name__)
+
+
+

@@ -68,14 +68,15 @@ class TestCotyledon(Base):
         self.pid_heavy_2 = self.get_pid(lines[1])
         self.pid_light_1 = self.get_pid(lines[2])
         lines = self.hide_pids(lines)
-        self.assertEqual([b'DEBUG:cotyledon:Run service heavy(0) [XXXX]',
-                          b'DEBUG:cotyledon:Run service heavy(1) [XXXX]',
-                          b'DEBUG:cotyledon:Run service light(0) [XXXX]',
-                          b'ERROR:cotyledon.tests.examples:heavy init',
-                          b'ERROR:cotyledon.tests.examples:heavy init',
-                          b'ERROR:cotyledon.tests.examples:heavy run',
-                          b'ERROR:cotyledon.tests.examples:heavy run'],
-                         lines)
+        self.assertEqual([
+            b'DEBUG:cotyledon._service:Run service heavy(0) [XXXX]',
+            b'DEBUG:cotyledon._service:Run service heavy(1) [XXXX]',
+            b'DEBUG:cotyledon._service:Run service light(0) [XXXX]',
+            b'ERROR:cotyledon.tests.examples:heavy init',
+            b'ERROR:cotyledon.tests.examples:heavy init',
+            b'ERROR:cotyledon.tests.examples:heavy run',
+            b'ERROR:cotyledon.tests.examples:heavy run'
+        ], lines)
 
         self.assert_everything_is_alive()
 
@@ -105,36 +106,40 @@ class TestCotyledon(Base):
         lines = self.get_lines(3)
         self.pid_light_1 = self.get_pid(lines[-1])
         lines = self.hide_pids(lines)
-        self.assertEqual([b'INFO:cotyledon:Caught SIGTERM signal, graceful '
-                          b'exiting of service light(0) [XXXX]',
-                          b'INFO:cotyledon:Child XXXX exited with status 0',
-                          b'DEBUG:cotyledon:Run service light(0) [XXXX]'
-                          ], lines)
+        self.assertEqual([
+            b'INFO:cotyledon._service:Caught SIGTERM signal, graceful '
+            b'exiting of service light(0) [XXXX]',
+            b'INFO:cotyledon._service_manager:Child XXXX exited with status 0',
+            b'DEBUG:cotyledon._service:Run service light(0) [XXXX]'
+        ], lines)
 
         # Ensure we restart with terminate method exit code
         os.kill(self.pid_heavy_1, signal.SIGTERM)
         lines = self.get_lines(6)
         self.pid_heavy_1 = self.get_pid(lines[-2])
         lines = self.hide_pids(lines)
-        self.assertEqual([b'INFO:cotyledon:Caught SIGTERM signal, graceful '
-                          b'exiting of service heavy(0) [XXXX]',
-                          b'ERROR:cotyledon.tests.examples:heavy terminate',
-                          b'INFO:cotyledon:Child XXXX exited with status 42',
-                          b'ERROR:cotyledon.tests.examples:heavy init',
-                          b'DEBUG:cotyledon:Run service heavy(0) [XXXX]',
-                          b'ERROR:cotyledon.tests.examples:heavy run',
-                          ], lines)
+        self.assertEqual([
+            b'INFO:cotyledon._service:Caught SIGTERM signal, graceful '
+            b'exiting of service heavy(0) [XXXX]',
+            b'ERROR:cotyledon.tests.examples:heavy terminate',
+            b'INFO:cotyledon._service_manager:Child XXXX exited '
+            b'with status 42',
+            b'ERROR:cotyledon.tests.examples:heavy init',
+            b'DEBUG:cotyledon._service:Run service heavy(0) [XXXX]',
+            b'ERROR:cotyledon.tests.examples:heavy run',
+        ], lines)
 
         # Ensure we restart when no terminate method
         os.kill(self.pid_light_1, signal.SIGTERM)
         lines = self.get_lines(3)
         self.pid_light_1 = self.get_pid(lines[-1])
         lines = self.hide_pids(lines)
-        self.assertEqual([b'INFO:cotyledon:Caught SIGTERM signal, graceful '
-                          b'exiting of service light(0) [XXXX]',
-                          b'INFO:cotyledon:Child XXXX exited with status 0',
-                          b'DEBUG:cotyledon:Run service light(0) [XXXX]',
-                          ], lines)
+        self.assertEqual([
+            b'INFO:cotyledon._service:Caught SIGTERM signal, graceful '
+            b'exiting of service light(0) [XXXX]',
+            b'INFO:cotyledon._service_manager:Child XXXX exited with status 0',
+            b'DEBUG:cotyledon._service:Run service light(0) [XXXX]',
+        ], lines)
 
         # Ensure everthing is still alive
         os.kill(self.subp.pid, 0)
@@ -146,25 +151,26 @@ class TestCotyledon(Base):
         os.kill(self.subp.pid, signal.SIGTERM)
         self.subp.terminate()
         lines = self.get_lines()
-        self.assertEqual(b'DEBUG:cotyledon:Shutdown finish',
+        self.assertEqual(b'DEBUG:cotyledon._service_manager:Shutdown finish',
                          lines[-1])
         time.sleep(0.5)
         lines = sorted(self.hide_pids(lines))
         self.assertEqual([
-            b'DEBUG:cotyledon:Killing services with signal SIGTERM',
-            b'DEBUG:cotyledon:Shutdown finish',
-            b'DEBUG:cotyledon:Waiting services to terminate',
+            b'DEBUG:cotyledon._service_manager:Killing services with '
+            b'signal SIGTERM',
+            b'DEBUG:cotyledon._service_manager:Shutdown finish',
+            b'DEBUG:cotyledon._service_manager:Waiting services to terminate',
             b'ERROR:cotyledon.tests.examples:heavy terminate',
             b'ERROR:cotyledon.tests.examples:heavy terminate',
             b'ERROR:cotyledon.tests.examples:master terminate hook',
-            b'INFO:cotyledon:Caught SIGTERM signal, '
-            b'graceful exiting of master process',
-            b'INFO:cotyledon:Caught SIGTERM signal, '
+            b'INFO:cotyledon._service:Caught SIGTERM signal, '
             b'graceful exiting of service heavy(0) [XXXX]',
-            b'INFO:cotyledon:Caught SIGTERM signal, '
+            b'INFO:cotyledon._service:Caught SIGTERM signal, '
             b'graceful exiting of service heavy(1) [XXXX]',
-            b'INFO:cotyledon:Caught SIGTERM signal, '
+            b'INFO:cotyledon._service:Caught SIGTERM signal, '
             b'graceful exiting of service light(0) [XXXX]',
+            b'INFO:cotyledon._service_manager:Caught SIGTERM signal, '
+            b'graceful exiting of master process',
         ], lines)
 
         self.assert_everything_is_dead()
@@ -176,7 +182,8 @@ class TestCotyledon(Base):
         lines = sorted(self.get_lines())
         lines = self.hide_pids(lines)
         self.assertEqual([
-            b'INFO:cotyledon:Caught SIGINT signal, instantaneous exiting',
+            b'INFO:cotyledon._service_manager:Caught SIGINT signal, '
+            b'instantaneous exiting',
         ], lines)
         self.assert_everything_is_dead(1)
 
@@ -187,13 +194,13 @@ class TestCotyledon(Base):
         lines = sorted(self.get_lines(6))
         lines = self.hide_pids(lines)
         self.assertEqual([
-            b'DEBUG:cotyledon:Run service light(0) [XXXX]',
+            b'DEBUG:cotyledon._service:Run service light(0) [XXXX]',
             b'ERROR:cotyledon.tests.examples:heavy reload',
             b'ERROR:cotyledon.tests.examples:heavy reload',
             b'ERROR:cotyledon.tests.examples:master reload hook',
-            b'INFO:cotyledon:Caught SIGTERM signal, '
+            b'INFO:cotyledon._service:Caught SIGTERM signal, '
             b'graceful exiting of service light(0) [XXXX]',
-            b'INFO:cotyledon:Child XXXX exited with status 0'
+            b'INFO:cotyledon._service_manager:Child XXXX exited with status 0'
         ], lines)
 
         os.kill(self.subp.pid, signal.SIGINT)
@@ -209,18 +216,18 @@ class TestCotyledon(Base):
         self.assertEqual([
             b'ERROR:cotyledon.tests.examples:heavy terminate',
             b'ERROR:cotyledon.tests.examples:heavy terminate',
-            b'INFO:cotyledon:Caught SIGTERM signal, graceful exiting of '
-            b'service heavy(0) [XXXX]',
-            b'INFO:cotyledon:Caught SIGTERM signal, graceful exiting of '
-            b'service heavy(1) [XXXX]',
-            b'INFO:cotyledon:Caught SIGTERM signal, graceful exiting of '
-            b'service light(0) [XXXX]',
-            b'INFO:cotyledon:Parent process has died unexpectedly, '
-            b'heavy(0) [XXXX] exiting',
-            b'INFO:cotyledon:Parent process has died unexpectedly, '
-            b'heavy(1) [XXXX] exiting',
-            b'INFO:cotyledon:Parent process has died unexpectedly, '
-            b'light(0) [XXXX] exiting',
+            b'INFO:cotyledon._service:Caught SIGTERM signal, '
+            b'graceful exiting of service heavy(0) [XXXX]',
+            b'INFO:cotyledon._service:Caught SIGTERM signal, '
+            b'graceful exiting of service heavy(1) [XXXX]',
+            b'INFO:cotyledon._service:Caught SIGTERM signal, '
+            b'graceful exiting of service light(0) [XXXX]',
+            b'INFO:cotyledon._service_manager:Parent process has died '
+            b'unexpectedly, heavy(0) [XXXX] exiting',
+            b'INFO:cotyledon._service_manager:Parent process has died '
+            b'unexpectedly, heavy(1) [XXXX] exiting',
+            b'INFO:cotyledon._service_manager:Parent process has died '
+            b'unexpectedly, light(0) [XXXX] exiting',
         ], lines)
         self.assert_everything_is_dead(-9)
 
@@ -240,9 +247,9 @@ class TestBuggyCotyledon(Base):
         self.assertNotIn('ERROR:cotyledon.tests.examples:time.sleep done',
                          lines)
         self.assertEqual([
-            b'INFO:cotyledon:Graceful shutdown timeout (1) exceeded, '
+            b'INFO:cotyledon._service:Graceful shutdown timeout (1) exceeded, '
             b'exiting buggy(0) [XXXX] now.',
-            b'DEBUG:cotyledon:Shutdown finish'
+            b'DEBUG:cotyledon._service_manager:Shutdown finish'
         ], lines[-2:])
 
     def test_graceful_timeout_kill(self):
@@ -257,11 +264,11 @@ class TestBuggyCotyledon(Base):
         self.assertNotIn('ERROR:cotyledon.tests.examples:time.sleep done',
                          lines)
         self.assertEqual([
-            b'INFO:cotyledon:Parent process has died unexpectedly, buggy(0) '
-            b'[XXXX] exiting',
-            b'INFO:cotyledon:Caught SIGTERM signal, graceful exiting of '
-            b'service buggy(0) [XXXX]',
-            b'INFO:cotyledon:Graceful shutdown timeout (1) exceeded, '
+            b'INFO:cotyledon._service_manager:Parent process has died '
+            b'unexpectedly, buggy(0) [XXXX] exiting',
+            b'INFO:cotyledon._service:Caught SIGTERM signal, graceful exiting '
+            b'of service buggy(0) [XXXX]',
+            b'INFO:cotyledon._service:Graceful shutdown timeout (1) exceeded, '
             b'exiting buggy(0) [XXXX] now.',
         ], lines[-3:])
 
