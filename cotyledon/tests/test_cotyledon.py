@@ -33,10 +33,10 @@ class Base(base.TestCase):
                                      close_fds=True,
                                      preexec_fn=os.setsid)
 
-    def cleanUp(self):
-        super(Base, self).cleanUp()
+    def tearDown(self):
         if self.subp.poll() is None:
-            self.subp.kill()
+            os.kill(self.subp.pid, signal.SIGINT)
+        super(Base, self).tearDown()
 
     def get_lines(self, number=None):
         if number is not None:
