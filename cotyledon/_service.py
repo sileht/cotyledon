@@ -39,9 +39,9 @@ class Service(object):
     """Service name used in the process title and the log messages in additionnal
     of the worker_id."""
 
-    graceful_shutdown_timeout = 60
+    graceful_shutdown_timeout = None
     """Timeout after which a gracefully shutdown service will exit. zero means
-    endless wait."""
+    endless wait. None means same as ServiceManager that launch the service"""
 
     def __init__(self, worker_id):
         """Create a new Service
@@ -142,14 +142,15 @@ class ServiceWorker(_utils.SignalManager):
     All methods implemented here, must run in the main threads
     """
 
-    def __init__(self, config, worker_id):
+    def __init__(self, config, worker_id, graceful_shutdown_timeout):
         super(ServiceWorker, self).__init__()
 
-        # Initialize the service process
         args = tuple() if config.args is None else config.args
         kwargs = dict() if config.kwargs is None else config.kwargs
         self.service = config.service(worker_id, *args, **kwargs)
         self.service._initialize(worker_id)
+
+        self.graceful_shutdown_timeout = graceful_shutdown_timeout
 
         self.title = "%(name)s(%(worker_id)d) [%(pid)d]" % dict(
             name=self.service.name, worker_id=worker_id, pid=os.getpid())
@@ -173,8 +174,12 @@ class ServiceWorker(_utils.SignalManager):
         elif sig == signal.SIGTERM:
             LOG.info('Caught SIGTERM signal, '
                      'graceful exiting of service %s' % self.title)
-            if self.service.graceful_shutdown_timeout > 0:
-                signal.alarm(self.service.graceful_shutdown_timeout)
+
+            timeout = self.service.graceful_shutdown_timeout
+            if timeout is None:
+                timeout = self.graceful_shutdown_timeout
+            if timeout > 0:
+                signal.alarm(timeout)
             _utils.spawn(self.service._terminate)
         elif sig == signal.SIGHUP:
             _utils.spawn(self.service._reload)

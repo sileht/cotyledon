@@ -85,7 +85,7 @@ class ServiceManager(_utils.SignalManager):
 
     _process_runner_already_created = False
 
-    def __init__(self, wait_interval=0.01):
+    def __init__(self, wait_interval=0.01, graceful_shutdown_timeout=60):
         """Creates the ServiceManager object
 
         :param wait_interval: time between each new process spawn
@@ -104,6 +104,7 @@ class ServiceManager(_utils.SignalManager):
         self._running_services = collections.defaultdict(dict)
         self._forktimes = []
         self._current_process = None
+        self._graceful_shutdown_timeout = graceful_shutdown_timeout
 
         self._hooks = {
             'terminate': [],
@@ -234,6 +235,10 @@ class ServiceManager(_utils.SignalManager):
 
     def _shutdown(self):
         LOG.info('Caught SIGTERM signal, graceful exiting of master process')
+
+        if self._graceful_shutdown_timeout > 0:
+            signal.alarm(self._graceful_shutdown_timeout)
+
         self._run_hooks('terminate')
 
         LOG.debug("Killing services with signal SIGTERM")
@@ -347,7 +352,8 @@ class ServiceManager(_utils.SignalManager):
         # Create and run a new service
         with _utils.exit_on_exception():
             self._current_process = _service.ServiceWorker(
-                self._services[service_id], worker_id)
+                self._services[service_id], worker_id,
+                self._graceful_shutdown_timeout)
             self._run_hooks('new_worker', service_id, worker_id,
                             self._current_process.service)
             self._current_process.wait_forever()
