@@ -20,10 +20,12 @@ LOG = logging.getLogger(__name__)
 service_opts = [
     cfg.BoolOpt('log_options',
                 default=True,
+                mutable=True,
                 help='Enables or disables logging values of all '
                 'registered options when starting a service (at DEBUG '
                 'level).'),
     cfg.IntOpt('graceful_shutdown_timeout',
+               mutable=True,
                default=60,
                help='Specify a timeout after which a gracefully shutdown '
                'server will exit. Zero value means endless wait.'),
