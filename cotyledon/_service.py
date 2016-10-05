@@ -64,6 +64,13 @@ class Service(object):
 
         self._signal_lock = threading.Lock()
 
+        # Only used by oslo_config_glue for now, so we don't need
+        # to have a list of hook
+        self._on_reload_internal_hook = self._noop_hook
+
+    def _noop_hook(self, service):
+        pass
+
     def terminate(self):
         """Gracefully shutdown the service
 
@@ -111,6 +118,7 @@ class Service(object):
         with _utils.exit_on_exception():
             if self._signal_lock.acquire(False):
                 try:
+                    self._on_reload_internal_hook(self)
                     self.reload()
                 finally:
                     self._signal_lock.release()
@@ -149,8 +157,8 @@ class ServiceWorker(_utils.SignalManager):
         kwargs = dict() if config.kwargs is None else config.kwargs
         self.service = config.service(worker_id, *args, **kwargs)
         self.service._initialize(worker_id)
-
-        self.graceful_shutdown_timeout = graceful_shutdown_timeout
+        if self.service.graceful_shutdown_timeout is None:
+            self.service.graceful_shutdown_timeout = graceful_shutdown_timeout
 
         self.title = "%(name)s(%(worker_id)d) [%(pid)d]" % dict(
             name=self.service.name, worker_id=worker_id, pid=os.getpid())
@@ -175,11 +183,8 @@ class ServiceWorker(_utils.SignalManager):
             LOG.info('Caught SIGTERM signal, '
                      'graceful exiting of service %s' % self.title)
 
-            timeout = self.service.graceful_shutdown_timeout
-            if timeout is None:
-                timeout = self.graceful_shutdown_timeout
-            if timeout > 0:
-                signal.alarm(timeout)
+            if self.service.graceful_shutdown_timeout > 0:
+                signal.alarm(self.service.graceful_shutdown_timeout)
             _utils.spawn(self.service._terminate)
         elif sig == signal.SIGHUP:
             _utils.spawn(self.service._reload)

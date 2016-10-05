@@ -30,19 +30,66 @@ service_opts = [
 ]
 
 
-def load_options(service, conf):
-    """Load some service configuration from oslo config object.
+def _load_service_manager_options(service_manager, conf):
+    service_manager.graceful_shutdown_timeout = conf.graceful_shutdown_timeout
 
-    :param service: Service instance
-    :type service: cotyledon.Service
-    :param conf: Oslo Config object
-    :type conf: oslo_config.ConfigOpts()
-    """
-    conf.register_opts(service_opts)
+
+def _load_service_options(service, conf):
     service.graceful_shutdown_timeout = conf.graceful_shutdown_timeout
+
     if conf.log_options:
         LOG.debug('Full set of CONF:')
         conf.log_opt_values(LOG, logging.DEBUG)
+
+
+def _configfile_reload(conf, reload_method):
+    if reload_method == 'reload':
+        conf.reload_config_files()
+    elif reload_method == 'mutate':
+        conf.mutate_config_files()
+
+
+def setup(service_manager, conf, reload_method="reload"):
+    """Load services configuration from oslo config object.
+
+    It reads ServiceManager and Service configuration options from an
+    oslo_config.ConfigOpts() object. Also It registers a ServiceManager hook to
+    reload the configuration file on reload in the master process and in all
+    children. And then when each child start or reload, the configuration
+    options are logged if the oslo config option 'log_options' is True.
+
+    On children, the configuration file is reloaded before the running the
+    application reload method.
+
+    Options currently supported on ServiceManager and Service:
+    * graceful_shutdown_timeout
+
+    :param service_manager: ServiceManager instance
+    :type service_manager: cotyledon.ServiceManager
+    :param conf: Oslo Config object
+    :type conf: oslo_config.ConfigOpts()
+    :param reload_method: reload or mutate the config files
+    :type reload_method: str "reload/mutate"
+    """
+    conf.register_opts(service_opts)
+
+    # Set cotyledon options from oslo config options
+    _load_service_manager_options(service_manager, conf)
+
+    def _service_manager_reload():
+        _configfile_reload(conf, reload_method)
+        _load_service_manager_options(service_manager, conf)
+
+    def _service_reload(service):
+        _configfile_reload(conf, reload_method)
+        _load_service_options(service, conf)
+
+    def _new_worker_hook(service_id, worker_id, service):
+        service._on_reload_internal_hook = _service_reload
+        _load_service_options(service, conf)
+
+    service_manager.register_hooks(on_new_worker=_new_worker_hook,
+                                   on_reload=_service_manager_reload)
 
 
 def list_opts():

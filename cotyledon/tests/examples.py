@@ -60,12 +60,6 @@ class BuggyService(cotyledon.Service):
 class OsloService(cotyledon.Service):
     name = "oslo"
 
-    def __init__(self, worker_id):
-        conf = cfg.ConfigOpts()
-        conf([], project='gnocchi', validate_default_values=True,
-             version="0.1")
-        oslo_config_glue.load_options(self, conf)
-
 
 def on_terminate():
     LOG.error("master terminate hook")
@@ -99,7 +93,12 @@ def buggy_app():
 
 def oslo_app():
     logging.basicConfig(level=logging.DEBUG)
+    conf = cfg.ConfigOpts()
+    conf([], project='openstack-app', validate_default_values=True,
+         version="0.1")
+
     p = cotyledon.ServiceManager()
+    oslo_config_glue.setup(p, conf)
     p.add(OsloService)
     p.run()
 
