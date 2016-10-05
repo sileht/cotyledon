@@ -122,18 +122,23 @@ class ServiceManager(_utils.SignalManager):
         # Register
         self.register_hooks()
 
-    def register_hooks(self, on_terminate=None, on_reload=None):
+    def register_hooks(self, on_terminate=None, on_reload=None,
+                       on_new_worker=None):
         """Register hooks method
 
         :param on_terminate: method called on SIGTERM
-        :type on_terminate: callable
+        :type on_terminate: callable()
         :param on_reload: method called on SIGHUP
-        :type on_reload: callable
+        :type on_reload: callable()
+        :param on_new_worker: method called in the child process when this one
+                              is ready
+        :type on_new_worker: callable(service_id, worker_id, service_obj)
         """
         self._on_terminate = on_terminate or self._default_callback
         self._on_reload = on_reload or self._default_callback
+        self._on_new_worker = on_new_worker or self._default_callback
 
-    def _default_callback(self):
+    def _default_callback(self, *args, **kwargs):
         pass
 
     def add(self, service, workers=1, args=None, kwargs=None):
@@ -333,6 +338,8 @@ class ServiceManager(_utils.SignalManager):
         with _utils.exit_on_exception():
             self._current_process = _service.ServiceWorker(
                 self._services[service_id], worker_id)
+            self._on_new_worker(service_id, worker_id,
+                                self._current_process.service)
             self._current_process.wait_forever()
 
     def _stop_worker(self, service_id, worker_id):

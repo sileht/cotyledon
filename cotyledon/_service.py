@@ -148,16 +148,16 @@ class ServiceWorker(_utils.SignalManager):
         # Initialize the service process
         args = tuple() if config.args is None else config.args
         kwargs = dict() if config.kwargs is None else config.kwargs
-        self._service = config.service(worker_id, *args, **kwargs)
-        self._service._initialize(worker_id)
+        self.service = config.service(worker_id, *args, **kwargs)
+        self.service._initialize(worker_id)
 
         self.title = "%(name)s(%(worker_id)d) [%(pid)d]" % dict(
-            name=self._service.name, worker_id=worker_id, pid=os.getpid())
+            name=self.service.name, worker_id=worker_id, pid=os.getpid())
 
         # Set process title
         setproctitle.setproctitle(
             "%(pname)s: %(name)s worker(%(worker_id)d)" % dict(
-                pname=_utils.get_process_name(), name=self._service.name,
+                pname=_utils.get_process_name(), name=self.service.name,
                 worker_id=worker_id))
 
     def _on_signal_received(self, sig):
@@ -166,20 +166,20 @@ class ServiceWorker(_utils.SignalManager):
         if sig == signal.SIGALRM:
             LOG.info('Graceful shutdown timeout (%d) exceeded, '
                      'exiting %s now.' %
-                     (self._service.graceful_shutdown_timeout,
+                     (self.service.graceful_shutdown_timeout,
                       self.title))
             os._exit(1)
 
         elif sig == signal.SIGTERM:
             LOG.info('Caught SIGTERM signal, '
                      'graceful exiting of service %s' % self.title)
-            if self._service.graceful_shutdown_timeout > 0:
-                signal.alarm(self._service.graceful_shutdown_timeout)
-            _utils.spawn(self._service._terminate)
+            if self.service.graceful_shutdown_timeout > 0:
+                signal.alarm(self.service.graceful_shutdown_timeout)
+            _utils.spawn(self.service._terminate)
         elif sig == signal.SIGHUP:
-            _utils.spawn(self._service._reload)
+            _utils.spawn(self.service._reload)
 
     def wait_forever(self):
         LOG.debug("Run service %s" % self.title)
-        _utils.spawn(self._service._run)
+        _utils.spawn(self.service._run)
         super(ServiceWorker, self)._wait_forever()
