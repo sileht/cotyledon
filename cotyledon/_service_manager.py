@@ -105,6 +105,12 @@ class ServiceManager(_utils.SignalManager):
         self._forktimes = []
         self._current_process = None
 
+        self._hooks = {
+            'terminate': [],
+            'reload': [],
+            'new_worker': [],
+        }
+
         setproctitle.setproctitle("%s: master process [%s]" %
                                   (_utils.get_process_name(),
                                    " ".join(sys.argv)))
@@ -119,12 +125,13 @@ class ServiceManager(_utils.SignalManager):
 
         signal.signal(signal.SIGINT, self._fast_exit)
 
-        # Register
-        self.register_hooks()
-
     def register_hooks(self, on_terminate=None, on_reload=None,
                        on_new_worker=None):
-        """Register hooks method
+        """Register hook methods
+
+        This can be callable multiple times to add more hooks, hooks are
+        executed in added order. If a hook raised an exception, next hooks
+        will be not executed.
 
         :param on_terminate: method called on SIGTERM
         :type on_terminate: callable()
@@ -134,12 +141,21 @@ class ServiceManager(_utils.SignalManager):
                               is ready
         :type on_new_worker: callable(service_id, worker_id, service_obj)
         """
-        self._on_terminate = on_terminate or self._default_callback
-        self._on_reload = on_reload or self._default_callback
-        self._on_new_worker = on_new_worker or self._default_callback
 
-    def _default_callback(self, *args, **kwargs):
-        pass
+        if on_terminate is not None:
+            self._hooks['terminate'].append(on_terminate)
+        if on_reload is not None:
+            self._hooks['reload'].append(on_reload)
+        if on_new_worker is not None:
+            self._hooks['new_worker'].append(on_new_worker)
+
+    def _run_hooks(self, name, *args, **kwargs):
+        try:
+            for hook in self._hooks[name]:
+                hook(*args, **kwargs)
+        except Exception:
+            LOG.exception("ServiceManager raised exception during %s hooks"
+                          % name)
 
     def add(self, service, workers=1, args=None, kwargs=None):
         """Add a new service to the ServiceManager
@@ -208,10 +224,7 @@ class ServiceManager(_utils.SignalManager):
             self._reload()
 
     def _reload(self):
-        try:
-            self._on_reload()
-        except Exception:
-            LOG.exception("ServiceManager raised exception during reload")
+        self._run_hooks('reload')
 
         # Reset forktimes to respawn services quickly
         self._forktimes = []
@@ -221,10 +234,7 @@ class ServiceManager(_utils.SignalManager):
 
     def _shutdown(self):
         LOG.info('Caught SIGTERM signal, graceful exiting of master process')
-        try:
-            self._on_terminate()
-        except Exception:
-            LOG.exception("ServiceManager raised exception during shutdown")
+        self._run_hooks('terminate')
 
         LOG.debug("Killing services with signal SIGTERM")
         signal.signal(signal.SIGTERM, signal.SIG_IGN)
@@ -338,8 +348,8 @@ class ServiceManager(_utils.SignalManager):
         with _utils.exit_on_exception():
             self._current_process = _service.ServiceWorker(
                 self._services[service_id], worker_id)
-            self._on_new_worker(service_id, worker_id,
-                                self._current_process.service)
+            self._run_hooks('new_worker', service_id, worker_id,
+                            self._current_process.service)
             self._current_process.wait_forever()
 
     def _stop_worker(self, service_id, worker_id):

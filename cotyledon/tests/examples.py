@@ -71,6 +71,10 @@ def on_terminate():
     LOG.error("master terminate hook")
 
 
+def on_terminate2():
+    LOG.error("master terminate2 hook")
+
+
 def on_reload():
     LOG.error("master reload hook")
 
@@ -82,6 +86,7 @@ def example_app():
     service_id = p.add(LigthService, 5)
     p.reconfigure(service_id, 1)
     p.register_hooks(on_terminate, on_reload)
+    p.register_hooks(on_terminate2)
     p.run()
 
 

@@ -163,6 +163,7 @@ class TestCotyledon(Base):
             b'ERROR:cotyledon.tests.examples:heavy terminate',
             b'ERROR:cotyledon.tests.examples:heavy terminate',
             b'ERROR:cotyledon.tests.examples:master terminate hook',
+            b'ERROR:cotyledon.tests.examples:master terminate2 hook',
             b'INFO:cotyledon._service:Caught SIGTERM signal, '
             b'graceful exiting of service heavy(0) [XXXX]',
             b'INFO:cotyledon._service:Caught SIGTERM signal, '
