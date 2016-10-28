@@ -49,6 +49,8 @@ Unlike oslo.service, cotyledon have:
 * a separated API for children process termination and for master process termination
 * seatbelt to ensure only one service workers manager run at a time.
 * Is signal concurrency safe.
+* Support non posix platform, because it's built on top of multiprocessing module
+  instead of os.fork
 
 And doesn't:
 

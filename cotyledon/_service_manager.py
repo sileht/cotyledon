@@ -221,8 +221,19 @@ class ServiceManager(_utils.SignalManager):
         # Reset forktimes to respawn services quickly
         self._forktimes = []
         signal.signal(signal.SIGHUP, signal.SIG_IGN)
-        os.killpg(0, signal.SIGHUP)
+        self._killpg(signal.SIGHUP)
         signal.signal(signal.SIGHUP, self._signal_catcher)
+
+    def _killpg(self, sig):
+        "Send 'sig' to the process group"
+        if os.name == "posix":
+            os.killpg(0, sig)
+        else:
+            # We do only best effort by killing our known children
+            # and that's all
+            for processes in self._running_services.values():
+                for process in processes:
+                    os.kill(process.pid, sig)
 
     def _shutdown(self):
         LOG.info('Caught SIGTERM signal, graceful exiting of master process')
@@ -234,7 +245,7 @@ class ServiceManager(_utils.SignalManager):
 
         LOG.debug("Killing services with signal SIGTERM")
         signal.signal(signal.SIGTERM, signal.SIG_IGN)
-        os.killpg(0, signal.SIGTERM)
+        self._killpg(signal.SIGTERM)
 
         LOG.debug("Waiting services to terminate")
         for processes in self._running_services.values():
@@ -285,8 +296,7 @@ class ServiceManager(_utils.SignalManager):
         if os.name == 'posix':
             signal.signal(signal.SIGALRM, signal.SIG_IGN)
         LOG.info(reason)
-        # NOTE(sileht): Not really multi-platform
-        os.killpg(0, signal.SIGINT)
+        self._killpg(signal.SIGINT)
         os._exit(1)
 
     def _slowdown_respawn_if_needed(self):
