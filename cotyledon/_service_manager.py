@@ -309,9 +309,10 @@ class ServiceManager(_utils.SignalManager):
     def _start_worker(self, service_id, worker_id):
         self._slowdown_respawn_if_needed()
 
-        # FIXME(sileht): It's better to close them in child process
-        # os.close(self.signal_pipe_r)
-        # os.close(self.signal_pipe_w)
+        if os.name == "posix":
+            fds = [self.signal_pipe_w, self.signal_pipe_r]
+        else:
+            fds = []
 
         # Create and run a new service
         p = _utils.spawn_process(
@@ -321,7 +322,8 @@ class ServiceManager(_utils.SignalManager):
             worker_id,
             self._death_detection_pipe,
             self._hooks['new_worker'],
-            self._graceful_shutdown_timeout)
+            self._graceful_shutdown_timeout,
+            fds_to_close=fds)
 
         self._running_services[service_id][p] = worker_id
 

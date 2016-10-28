@@ -44,8 +44,17 @@ def spawn(target, *args, **kwargs):
     return t
 
 
-def spawn_process(target, *args, **kwargs):
-    p = multiprocessing.Process(target=target, args=args, kwargs=kwargs)
+def _bootstrap_process(target, *args, **kwargs):
+    if "fds_to_close" in kwargs:
+        for fd in kwargs["fds_to_close"]:
+            os.close(fd)
+        del kwargs["fds_to_close"]
+    target(*args, **kwargs)
+
+
+def spawn_process(*args, **kwargs):
+    p = multiprocessing.Process(target=_bootstrap_process,
+                                args=args, kwargs=kwargs)
     p.start()
     return p
 
