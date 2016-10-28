@@ -223,11 +223,11 @@ class TestCotyledon(Base):
             b'graceful exiting of service heavy(1) [XXXX]',
             b'INFO:cotyledon._service:Caught SIGTERM signal, '
             b'graceful exiting of service light(0) [XXXX]',
-            b'INFO:cotyledon._service_manager:Parent process has died '
+            b'INFO:cotyledon._service:Parent process has died '
             b'unexpectedly, heavy(0) [XXXX] exiting',
-            b'INFO:cotyledon._service_manager:Parent process has died '
+            b'INFO:cotyledon._service:Parent process has died '
             b'unexpectedly, heavy(1) [XXXX] exiting',
-            b'INFO:cotyledon._service_manager:Parent process has died '
+            b'INFO:cotyledon._service:Parent process has died '
             b'unexpectedly, light(0) [XXXX] exiting',
         ], lines)
         self.assert_everything_is_dead(-9)
@@ -265,7 +265,7 @@ class TestBuggyCotyledon(Base):
         self.assertNotIn('ERROR:cotyledon.tests.examples:time.sleep done',
                          lines)
         self.assertEqual([
-            b'INFO:cotyledon._service_manager:Parent process has died '
+            b'INFO:cotyledon._service:Parent process has died '
             b'unexpectedly, buggy(0) [XXXX] exiting',
             b'INFO:cotyledon._service:Caught SIGTERM signal, graceful exiting '
             b'of service buggy(0) [XXXX]',

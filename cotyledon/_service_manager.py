@@ -15,7 +15,7 @@ import contextlib
 import errno
 import logging
 import os
-import random
+import multiprocessing
 import signal
 import socket
 import sys
@@ -103,7 +103,6 @@ class ServiceManager(_utils.SignalManager):
         self._services = collections.OrderedDict()
         self._running_services = collections.defaultdict(dict)
         self._forktimes = []
-        self._current_process = None
         self._graceful_shutdown_timeout = graceful_shutdown_timeout
 
         self._hooks = {
@@ -122,7 +121,7 @@ class ServiceManager(_utils.SignalManager):
         except OSError:
             pass
 
-        self.readpipe, self.writepipe = os.pipe()
+        self._death_detection_pipe = multiprocessing.Pipe(duplex=False)
 
         signal.signal(signal.SIGINT, self._fast_exit)
 
@@ -151,12 +150,7 @@ class ServiceManager(_utils.SignalManager):
             self._hooks['new_worker'].append(on_new_worker)
 
     def _run_hooks(self, name, *args, **kwargs):
-        try:
-            for hook in self._hooks[name]:
-                hook(*args, **kwargs)
-        except Exception:
-            LOG.exception("ServiceManager raised exception during %s hooks"
-                          % name)
+        _utils.run_hooks(name, self._hooks[name], *args, **kwargs)
 
     def add(self, service, workers=1, args=None, kwargs=None):
         """Add a new service to the ServiceManager
@@ -328,61 +322,25 @@ class ServiceManager(_utils.SignalManager):
     def _start_worker(self, service_id, worker_id):
         self._slowdown_respawn_if_needed()
 
-        pid = os.fork()
-        if pid != 0:
-            self._running_services[service_id][pid] = worker_id
-            return
-
-        # reset parent signals
-        signal.signal(signal.SIGINT, signal.SIG_DFL)
-        signal.signal(signal.SIGALRM, signal.SIG_DFL)
-        signal.signal(signal.SIGTERM, signal.SIG_DFL)
-        signal.signal(signal.SIGHUP, signal.SIG_DFL)
-
-        # Close write to ensure only parent has it open
-        os.close(self.writepipe)
-        os.close(self.signal_pipe_r)
-        os.close(self.signal_pipe_w)
-
-        _utils.spawn(self._watch_parent_process)
-
-        # Reseed random number generator
-        random.seed()
+        # FIXME(sileht): It's better to close them in child process
+        # os.close(self.signal_pipe_r)
+        # os.close(self.signal_pipe_w)
 
         # Create and run a new service
-        with _utils.exit_on_exception():
-            self._current_process = _service.ServiceWorker(
-                self._services[service_id], worker_id,
-                self._graceful_shutdown_timeout)
-            self._run_hooks('new_worker', service_id, worker_id,
-                            self._current_process.service)
-            self._current_process.wait_forever()
+        p = _utils.spawn_process(
+            _service.ServiceWorker.create_and_wait,
+            self._services[service_id],
+            service_id,
+            worker_id,
+            self._death_detection_pipe,
+            self._hooks['new_worker'],
+            self._graceful_shutdown_timeout)
+        self._running_services[service_id][p.pid] = worker_id
 
     def _stop_worker(self, service_id, worker_id):
         for pid, _id in self._running_services[service_id].items():
             if _id == worker_id:
                 os.kill(pid, signal.SIGTERM)
-
-    def _watch_parent_process(self):
-        # NOTE(sileht): This is the only method that located in this class but
-        # run into the child process. We do this to be able to stop the process
-        # before the service have started.
-
-        # This will block until the write end is closed when the parent
-        # dies unexpectedly
-        try:
-            os.read(self.readpipe, 1)
-        except EnvironmentError:
-            pass
-
-        # FIXME(sileht): accessing self._current_process is not really
-        # thread-safe.
-        if self._current_process is not None:
-            LOG.info('Parent process has died unexpectedly, %s exiting'
-                     % self._current_process.title)
-            os.kill(os.getpid(), signal.SIGTERM)
-        else:
-            os._exit(0)
 
     @staticmethod
     def _systemd_notify_once():

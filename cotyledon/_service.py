@@ -12,6 +12,7 @@
 
 import logging
 import os
+import random
 import signal
 import sys
 import threading
@@ -150,8 +151,19 @@ class ServiceWorker(_utils.SignalManager):
     All methods implemented here, must run in the main threads
     """
 
-    def __init__(self, config, worker_id, graceful_shutdown_timeout):
+    @classmethod
+    def create_and_wait(cls, *args, **kwargs):
+        sw = cls(*args, **kwargs)
+        sw.wait_forever()
+
+    def __init__(self, config, service_id, worker_id, parent_pipe,
+                 started_hooks, graceful_shutdown_timeout):
         super(ServiceWorker, self).__init__()
+        self._ready = threading.Event()
+        _utils.spawn(self._watch_parent_process, parent_pipe)
+
+        # Reseed random number generator
+        random.seed()
 
         args = tuple() if config.args is None else config.args
         kwargs = dict() if config.kwargs is None else config.kwargs
@@ -168,6 +180,27 @@ class ServiceWorker(_utils.SignalManager):
             "%(pname)s: %(name)s worker(%(worker_id)d)" % dict(
                 pname=_utils.get_process_name(), name=self.service.name,
                 worker_id=worker_id))
+
+        # We are ready tell them
+        self._ready.set()
+        _utils.run_hooks('new_worker', started_hooks, service_id, worker_id,
+                         self.service)
+
+    def _watch_parent_process(self, parent_pipe):
+        # This will block until the write end is closed when the parent
+        # dies unexpectedly
+        parent_pipe[1].close()
+        try:
+            parent_pipe[0].recv()
+        except EOFError:
+            pass
+
+        if self._ready.is_set():
+            LOG.info('Parent process has died unexpectedly, %s exiting'
+                     % self.title)
+            os.kill(os.getpid(), signal.SIGTERM)
+        else:
+            os._exit(0)
 
     def _on_signal_received(self, sig):
         # Code below must not block to return to select.select() and catch

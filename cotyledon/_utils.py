@@ -16,6 +16,7 @@ import errno
 import fcntl
 import logging
 import os
+import multiprocessing
 import select
 import signal
 import sys
@@ -33,15 +34,29 @@ def signal_to_name(sig):
     return _SIGNAL_TO_NAME.get(sig)
 
 
-def spawn(target):
-    t = threading.Thread(target=target)
+def spawn(target, *args, **kwargs):
+    t = threading.Thread(target=target, args=args, kwargs=kwargs)
     t.daemon = True
     t.start()
     return t
 
 
+def spawn_process(target, *args, **kwargs):
+    p = multiprocessing.Process(target=target, args=args, kwargs=kwargs)
+    p.start()
+    return p
+
+
 def get_process_name():
     return os.path.basename(sys.argv[0])
+
+
+def run_hooks(name, hooks, *args, **kwargs):
+    try:
+        for hook in hooks:
+            hook(*args, **kwargs)
+    except Exception:
+        LOG.exception("Exception raised during %s hooks" % name)
 
 
 @contextlib.contextmanager
@@ -66,6 +81,7 @@ class SignalManager(object):
 
         self._signals_received = collections.deque()
 
+        signal.signal(signal.SIGINT, signal.SIG_DFL)
         signal.signal(signal.SIGHUP, self._signal_catcher)
         signal.signal(signal.SIGTERM, self._signal_catcher)
         signal.signal(signal.SIGALRM, self._signal_catcher)
