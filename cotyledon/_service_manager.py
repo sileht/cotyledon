@@ -12,7 +12,6 @@
 
 import collections
 import contextlib
-import errno
 import logging
 import os
 import multiprocessing
@@ -240,17 +239,10 @@ class ServiceManager(_utils.SignalManager):
         os.killpg(0, signal.SIGTERM)
 
         LOG.debug("Waiting services to terminate")
-        # NOTE(sileht): We follow the termination of our children only
-        # so we can't use waitpid(0, 0)
         for pids in self._running_services.values():
-            for pid in pids:
-                try:
-                    os.waitpid(pid, 0)
-                except OSError as e:
-                    if e.errno == errno.ECHILD:
-                        pass
-                    else:
-                        raise
+            for pid, info in pids.items():
+                _id, process = info
+                process.join()
 
         LOG.debug("Shutdown finish")
         sys.exit(0)
@@ -268,7 +260,8 @@ class ServiceManager(_utils.SignalManager):
     def _restart_dead_worker(self, dead_pid):
         for service_id in self._running_services:
             service_info = list(self._running_services[service_id].items())
-            for pid, worker_id in service_info:
+            for pid, info in service_info:
+                worker_id, process = info
                 if pid == dead_pid:
                     del self._running_services[service_id][pid]
                     self._start_worker(service_id, worker_id)
@@ -277,31 +270,25 @@ class ServiceManager(_utils.SignalManager):
 
     def _get_last_pid_died(self):
         """Return the last died service or None"""
-        try:
-            # Don't block if no child processes have exited
-            pid, status = os.waitpid(0, os.WNOHANG)
-            if not pid:
-                return None
-        except OSError as exc:
-            if exc.errno not in (errno.EINTR, errno.ECHILD):
-                raise
-            return None
-
-        if os.WIFSIGNALED(status):
-            sig = _utils.signal_to_name(os.WTERMSIG(status))
-            LOG.info('Child %(pid)d killed by signal %(sig)s',
-                     dict(pid=pid, sig=sig))
-        else:
-            code = os.WEXITSTATUS(status)
-            LOG.info('Child %(pid)d exited with status %(code)d',
-                     dict(pid=pid, code=code))
-        return pid
+        for service_id, pids in self._running_services.items():
+            for pid, info in pids.items():
+                _id, process = info
+                if not process.is_alive():
+                    if process.exitcode < 0:
+                        sig = _utils.signal_to_name(process.exitcode)
+                        LOG.info('Child %(pid)d killed by signal %(sig)s',
+                                 dict(pid=pid, sig=sig))
+                    else:
+                        LOG.info('Child %(pid)d exited with status %(code)d',
+                                 dict(pid=pid, code=process.exitcode))
+                    return pid
 
     def _fast_exit(self, signo=None, frame=None,
                    reason='Caught SIGINT signal, instantaneous exiting'):
         signal.signal(signal.SIGINT, signal.SIG_IGN)
         signal.signal(signal.SIGALRM, signal.SIG_IGN)
         LOG.info(reason)
+        # NOTE(sileht): Not really multi-platform
         os.killpg(0, signal.SIGINT)
         os._exit(1)
 
@@ -335,10 +322,13 @@ class ServiceManager(_utils.SignalManager):
             self._death_detection_pipe,
             self._hooks['new_worker'],
             self._graceful_shutdown_timeout)
-        self._running_services[service_id][p.pid] = worker_id
+
+        # TODO(sileht): Create a better structure to store this tuple
+        self._running_services[service_id][p.pid] = (worker_id, p)
 
     def _stop_worker(self, service_id, worker_id):
-        for pid, _id in self._running_services[service_id].items():
+        for pid, info in self._running_services[service_id].items():
+            _id, process = info
             if _id == worker_id:
                 os.kill(pid, signal.SIGTERM)
 
