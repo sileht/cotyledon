@@ -207,12 +207,12 @@ class ServiceManager(_utils.SignalManager):
         self._adjust_workers()
 
     def _on_signal_received(self, sig):
-        if sig == signal.SIGALRM:
+        if sig == getattr(signal, 'SIGALRM', None):
             self._fast_exit(reason='Graceful shutdown timeout exceeded, '
                             'instantaneous exiting of master process')
         elif sig == signal.SIGTERM:
             self._shutdown()
-        elif sig == signal.SIGHUP:
+        elif sig == getattr(signal, 'SIGHUP', None):
             self._reload()
 
     def _reload(self):
@@ -284,7 +284,8 @@ class ServiceManager(_utils.SignalManager):
     def _fast_exit(self, signo=None, frame=None,
                    reason='Caught SIGINT signal, instantaneous exiting'):
         signal.signal(signal.SIGINT, signal.SIG_IGN)
-        signal.signal(signal.SIGALRM, signal.SIG_IGN)
+        if os.name == 'posix':
+            signal.signal(signal.SIGALRM, signal.SIG_IGN)
         LOG.info(reason)
         # NOTE(sileht): Not really multi-platform
         os.killpg(0, signal.SIGINT)

@@ -13,14 +13,17 @@
 import collections
 import contextlib
 import errno
-import fcntl
 import logging
 import os
 import multiprocessing
 import select
 import signal
 import sys
+import time
 import threading
+
+if os.name == 'posix':
+    import fcntl
 
 LOG = logging.getLogger(__name__)
 
@@ -81,17 +84,19 @@ class SignalManager(object):
     def __init__(self, wakeup_interval=None):
         self._wakeup_interval = wakeup_interval
         # Setup signal fd, this allows signal to behave correctly
-        self.signal_pipe_r, self.signal_pipe_w = os.pipe()
-        self._set_nonblock(self.signal_pipe_r)
-        self._set_nonblock(self.signal_pipe_w)
-        signal.set_wakeup_fd(self.signal_pipe_w)
+        if os.name == 'posix':
+            self.signal_pipe_r, self.signal_pipe_w = os.pipe()
+            self._set_nonblock(self.signal_pipe_r)
+            self._set_nonblock(self.signal_pipe_w)
+            signal.set_wakeup_fd(self.signal_pipe_w)
 
         self._signals_received = collections.deque()
 
         signal.signal(signal.SIGINT, signal.SIG_DFL)
-        signal.signal(signal.SIGHUP, self._signal_catcher)
         signal.signal(signal.SIGTERM, self._signal_catcher)
-        signal.signal(signal.SIGALRM, self._signal_catcher)
+        if os.name == 'posix':
+            signal.signal(signal.SIGALRM, self._signal_catcher)
+            signal.signal(signal.SIGHUP, self._signal_catcher)
 
     @staticmethod
     def _set_nonblock(fd):
@@ -100,19 +105,35 @@ class SignalManager(object):
         fcntl.fcntl(fd, fcntl.F_SETFL, flags)
 
     def _signal_catcher(self, sig, frame):
-        if sig in [signal.SIGALRM, signal.SIGTERM]:
+        if sig == getattr(signal, 'SIGALRM', None):
+            self._signals_received.appendleft(sig)
+        elif sig == signal.SIGTERM:
             self._signals_received.appendleft(sig)
         else:
             self._signals_received.append(sig)
 
     def _wait_forever(self):
+        if os.name == "posix":
+            self._wait_forever_posix()
+        else:
+            self._wait_forever_non_posix()
+
+    def _wait_forever_non_posix(self):
+        # NOTE(sileht): here we do only best effort
+        # and wake the loop periodically, set_wakeup_fd
+        # doesn't work on non posix platform so
+        # 5 have been picked with the advice of a dice.
+        while True:
+            self._run_signal_handlers()
+            self._on_wakeup()
+            time.sleep(5)
+
+    def _wait_forever_posix(self):
         # Wait forever
         while True:
             # Check if signals have been received
             self._empty_signal_pipe()
             self._run_signal_handlers()
-
-            # Run Wakeup hook
             self._on_wakeup()
 
             # NOTE(sileht): we cannot use threading.Event().wait(),
