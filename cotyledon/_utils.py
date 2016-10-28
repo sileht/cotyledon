@@ -105,6 +105,9 @@ class SignalManager(object):
         fcntl.fcntl(fd, fcntl.F_SETFL, flags)
 
     def _signal_catcher(self, sig, frame):
+        # NOTE(sileht): This is useful only for python < 3.5
+        # in python >= 3.5 we could read the signal number
+        # from the wakeup_fd pipe
         if sig == getattr(signal, 'SIGALRM', None):
             self._signals_received.appendleft(sig)
         elif sig == signal.SIGTERM:
