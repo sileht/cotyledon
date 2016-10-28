@@ -117,7 +117,7 @@ class ServiceManager(_utils.SignalManager):
         # Try to create a session id if possible
         try:
             os.setsid()
-        except OSError:
+        except (OSError, AttributeError):
             pass
 
         self._death_detection_pipe = multiprocessing.Pipe(duplex=False)
