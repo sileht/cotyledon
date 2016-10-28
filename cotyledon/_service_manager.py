@@ -21,7 +21,6 @@ import sys
 import time
 import uuid
 
-import setproctitle
 
 from cotyledon import _service
 from cotyledon import _utils
@@ -110,9 +109,8 @@ class ServiceManager(_utils.SignalManager):
             'new_worker': [],
         }
 
-        setproctitle.setproctitle("%s: master process [%s]" %
-                                  (_utils.get_process_name(),
-                                   " ".join(sys.argv)))
+        _utils.setproctitle("%s: master process [%s]" %
+                            (_utils.get_process_name(), " ".join(sys.argv)))
 
         # Try to create a session id if possible
         try:

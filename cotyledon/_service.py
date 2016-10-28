@@ -17,8 +17,6 @@ import signal
 import sys
 import threading
 
-import setproctitle
-
 
 from cotyledon import _utils
 
@@ -176,7 +174,7 @@ class ServiceWorker(_utils.SignalManager):
             name=self.service.name, worker_id=worker_id, pid=os.getpid())
 
         # Set process title
-        setproctitle.setproctitle(
+        _utils.setproctitle(
             "%(pname)s: %(name)s worker(%(worker_id)d)" % dict(
                 pname=_utils.get_process_name(), name=self.service.name,
                 worker_id=worker_id))

@@ -3,4 +3,4 @@
 # process, which may cause wedges in the gate later.
 
 pbr>=1.6
-setproctitle
+setproctitle; sys_platform != 'win32'

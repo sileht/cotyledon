@@ -47,6 +47,13 @@ def spawn_process(target, *args, **kwargs):
     return p
 
 
+try:
+    from setproctitle import setproctitle
+except ImportError:
+    def setproctitle(*args, **kwargs):
+        pass
+
+
 def get_process_name():
     return os.path.basename(sys.argv[0])
 
