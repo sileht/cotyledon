@@ -27,4 +27,6 @@ Also signal handlers are only run every 5 seconds instead of just after the
 signal reception because non-posix platform does not support
 signal.set_wakeup_fd correctly
 
+SIGHUP/SIGALRM are of course not supported.
+
 And to finish, the processes names are not set on non-posix platform.
