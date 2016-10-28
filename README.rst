@@ -2,9 +2,6 @@
 Cotyledon
 ===============================
 
-.. image:: https://travis-ci.org/sileht/cotyledon.png?branch=master
-   :target: https://travis-ci.org/sileht/cotyledon
-
 .. image:: https://img.shields.io/pypi/v/cotyledon.svg
    :target: https://pypi.python.org/pypi/cotyledon/
    :alt: Latest Version
@@ -12,6 +9,12 @@ Cotyledon
 .. image:: https://img.shields.io/pypi/dm/cotyledon.svg
    :target: https://pypi.python.org/pypi/cotyledon/
    :alt: Downloads
+
+.. image:: https://travis-ci.org/sileht/cotyledon.png?branch=master
+   :target: https://travis-ci.org/sileht/cotyledon
+
+.. image:: https://tea-ci.org/api/badges/sileht/cotyledon/status.svg
+   :target: https://tea-ci.org/sileht/cotyledon
 
 Cotyledon provides a framework for defining long-running services.
 

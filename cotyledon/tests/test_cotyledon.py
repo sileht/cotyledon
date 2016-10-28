@@ -27,11 +27,14 @@ class Base(base.TestCase):
         super(Base, self).setUp()
         examplepy = os.path.join(os.path.dirname(__file__),
                                  "examples.py")
+        if os.name == 'posix':
+            preexec = os.setsid
+        else:
+            preexec = None
         self.subp = subprocess.Popen(['python', examplepy, self.name],
                                      stdout=subprocess.PIPE,
                                      stderr=subprocess.STDOUT,
-                                     close_fds=True,
-                                     preexec_fn=os.setsid)
+                                     preexec_fn=preexec)
 
     def tearDown(self):
         if self.subp.poll() is None:

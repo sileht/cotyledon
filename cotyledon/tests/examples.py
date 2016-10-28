@@ -10,7 +10,9 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import os
 import logging
+import signal
 import sys
 import threading
 import time
@@ -18,6 +20,7 @@ import time
 from oslo_config import cfg
 
 import cotyledon
+from cotyledon import _utils
 from cotyledon import oslo_config_glue
 
 LOG = logging.getLogger("cotyledon.tests.examples")
@@ -61,6 +64,10 @@ class OsloService(cotyledon.Service):
     name = "oslo"
 
 
+class WindowService(cotyledon.Service):
+    name = "window"
+
+
 def on_terminate():
     LOG.error("master terminate hook")
 
@@ -74,7 +81,6 @@ def on_reload():
 
 
 def example_app():
-    logging.basicConfig(level=logging.DEBUG)
     p = cotyledon.ServiceManager()
     p.add(FullService, 2)
     service_id = p.add(LigthService, 5)
@@ -85,14 +91,12 @@ def example_app():
 
 
 def buggy_app():
-    logging.basicConfig(level=logging.DEBUG)
     p = cotyledon.ServiceManager()
     p.add(BuggyService)
     p.run()
 
 
 def oslo_app():
-    logging.basicConfig(level=logging.DEBUG)
     conf = cfg.ConfigOpts()
     conf([], project='openstack-app', validate_default_values=True,
          version="0.1")
@@ -103,5 +107,17 @@ def oslo_app():
     p.run()
 
 
+def window_sanity_check():
+    p = cotyledon.ServiceManager()
+    p.add(LigthService)
+    t = _utils.spawn(p.run)
+    time.sleep(10)
+    os.kill(os.getpid(), signal.SIGTERM)
+    t.join()
+
+
 if __name__ == '__main__':
+    # NOTE(sileht): On window we have to reset it before
+    logging.getLogger('').handlers = []
+    logging.basicConfig(level=logging.DEBUG)
     globals()[sys.argv[1]]()

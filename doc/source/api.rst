@@ -10,7 +10,7 @@ API
    :members:
    :special-members: __init__
 
-.. autofunction:: cotyledon.oslo_config_glue.load_options
+.. autofunction:: cotyledon.oslo_config_glue.setup
 
 
 Note about non posix support
