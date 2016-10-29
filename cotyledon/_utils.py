@@ -14,13 +14,13 @@ import collections
 import contextlib
 import errno
 import logging
-import os
 import multiprocessing
+import os
 import select
 import signal
 import sys
-import time
 import threading
+import time
 
 if os.name == 'posix':
     import fcntl

@@ -13,8 +13,8 @@
 import collections
 import contextlib
 import logging
-import os
 import multiprocessing
+import os
 import signal
 import socket
 import sys
