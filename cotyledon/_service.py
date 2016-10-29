@@ -196,29 +196,34 @@ class ServiceWorker(_utils.SignalManager):
         if self._ready.is_set():
             LOG.info('Parent process has died unexpectedly, %s exiting'
                      % self.title)
-            os.kill(os.getpid(), signal.SIGTERM)
+            self._on_signal_received(signal.SIGTERM)
         else:
             os._exit(0)
+
+    def _alarm(self):
+        LOG.info('Graceful shutdown timeout (%d) exceeded, '
+                 'exiting %s now.' %
+                 (self.service.graceful_shutdown_timeout,
+                  self.title))
+        os._exit(1)
 
     def _on_signal_received(self, sig):
         # Code below must not block to return to select.select() and catch
         # next signals
-        if sig == getattr(signal, 'SIGALRM', None):
-            LOG.info('Graceful shutdown timeout (%d) exceeded, '
-                     'exiting %s now.' %
-                     (self.service.graceful_shutdown_timeout,
-                      self.title))
-            os._exit(1)
-
+        if sig == _utils.SIGALRM:
+            self._alarm()
         elif sig == signal.SIGTERM:
             LOG.info('Caught SIGTERM signal, '
                      'graceful exiting of service %s' % self.title)
 
-            if (os.name == "posix" and
-                    self.service.graceful_shutdown_timeout > 0):
-                signal.alarm(self.service.graceful_shutdown_timeout)
+            if self.service.graceful_shutdown_timeout > 0:
+                if os.name == "posix":
+                    signal.alarm(self.service.graceful_shutdown_timeout)
+                else:
+                    threading.Timer(self.service.graceful_shutdown_timeout,
+                                    self._alarm).start()
             _utils.spawn(self.service._terminate)
-        elif sig == getattr(signal, 'SIGHUP', None):
+        elif sig == _utils.SIGHUP:
             _utils.spawn(self.service._reload)
 
     def wait_forever(self):

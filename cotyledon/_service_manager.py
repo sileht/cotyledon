@@ -18,6 +18,7 @@ import os
 import signal
 import socket
 import sys
+import threading
 import time
 import uuid
 
@@ -208,49 +209,59 @@ class ServiceManager(_utils.SignalManager):
         self._adjust_workers()
 
     def _on_signal_received(self, sig):
-        if sig == getattr(signal, 'SIGALRM', None):
-            self._fast_exit(reason='Graceful shutdown timeout exceeded, '
-                            'instantaneous exiting of master process')
+        if sig == _utils.SIGALRM:
+            self._alarm()
         elif sig == signal.SIGTERM:
             self._shutdown()
-        elif sig == getattr(signal, 'SIGHUP', None):
+        elif sig == _utils.SIGHUP:
             self._reload()
+        else:
+            LOG.debug("unhandled signal %s" % sig)
+
+    def _alarm(self):
+        self._fast_exit(reason='Graceful shutdown timeout exceeded, '
+                        'instantaneous exiting of master process')
 
     def _reload(self):
+        """reload all children
+
+        posix only
+        """
         self._run_hooks('reload')
 
         # Reset forktimes to respawn services quickly
         self._forktimes = []
         signal.signal(signal.SIGHUP, signal.SIG_IGN)
-        self._killpg(signal.SIGHUP)
+        os.killpg(0, signal.SIGHUP)
         signal.signal(signal.SIGHUP, self._signal_catcher)
-
-    def _killpg(self, sig):
-        "Send 'sig' to the process group"
-        if os.name == "posix":
-            os.killpg(0, sig)
-        else:
-            # We do only best effort by killing our known children
-            # and that's all
-            for processes in self._running_services.values():
-                for process in processes:
-                    os.kill(process.pid, sig)
 
     def _shutdown(self):
         LOG.info('Caught SIGTERM signal, graceful exiting of master process')
+        signal.signal(signal.SIGTERM, signal.SIG_IGN)
 
         if self._graceful_shutdown_timeout > 0:
-            signal.alarm(self._graceful_shutdown_timeout)
+            if os.name == "posix":
+                signal.alarm(self._graceful_shutdown_timeout)
+            else:
+                threading.Timer(self._graceful_shutdown_timeout,
+                                self._alarm).start()
 
         self._run_hooks('terminate')
 
         LOG.debug("Killing services with signal SIGTERM")
-        signal.signal(signal.SIGTERM, signal.SIG_IGN)
-        self._killpg(signal.SIGTERM)
+        if os.name == 'posix':
+            os.killpg(0, signal.SIGTERM)
 
         LOG.debug("Waiting services to terminate")
         for processes in self._running_services.values():
             for process in processes:
+                if os.name != "posix":
+                    # NOTE(sileht): we don't have killpg so we
+                    # kill all known processes instead
+                    # FIXME(sileht): We should use CTRL_BREAK_EVENT on windows
+                    # when CREATE_NEW_PROCESS_GROUP will be set on child
+                    # process
+                    process.terminate()
                 process.join()
 
         LOG.debug("Shutdown finish")
@@ -285,11 +296,15 @@ class ServiceManager(_utils.SignalManager):
 
     def _fast_exit(self, signo=None, frame=None,
                    reason='Caught SIGINT signal, instantaneous exiting'):
-        signal.signal(signal.SIGINT, signal.SIG_IGN)
         if os.name == 'posix':
+            signal.signal(signal.SIGINT, signal.SIG_IGN)
             signal.signal(signal.SIGALRM, signal.SIG_IGN)
-        LOG.info(reason)
-        self._killpg(signal.SIGINT)
+            LOG.info(reason)
+            os.killpg(0, signal.SIGINT)
+        else:
+            # NOTE(sileht): On windows killing the master process
+            # with SIGINT kill automatically children
+            LOG.info(reason)
         os._exit(1)
 
     def _slowdown_respawn_if_needed(self):
@@ -330,7 +345,9 @@ class ServiceManager(_utils.SignalManager):
     def _stop_worker(self, service_id, worker_id):
         for process, _id in self._running_services[service_id].items():
             if _id == worker_id:
-                os.kill(process.pid, signal.SIGTERM)
+                # FIXME(sileht): We should use CTRL_BREAK_EVENT on windows
+                # when CREATE_NEW_PROCESS_GROUP will be set on child process
+                process.terminte()
 
     @staticmethod
     def _systemd_notify_once():

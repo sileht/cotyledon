@@ -89,8 +89,17 @@ def exit_on_exception():
         os._exit(2)
 
 
+if os.name == "posix":
+    SIGALRM = signal.SIGALRM
+    SIGHUP = signal.SIGHUP
+    SIBREAK = None
+else:
+    SIGALRM = SIGHUP = None
+    SIGBREAK = signal.SIGBREAK
+
+
 class SignalManager(object):
-    def __init__(self, wakeup_interval=None):
+    def __init__(self, wakeup_interval=None, master=False):
         self._wakeup_interval = wakeup_interval
         # Setup signal fd, this allows signal to behave correctly
         if os.name == 'posix':
@@ -102,10 +111,17 @@ class SignalManager(object):
         self._signals_received = collections.deque()
 
         signal.signal(signal.SIGINT, signal.SIG_DFL)
-        signal.signal(signal.SIGTERM, self._signal_catcher)
         if os.name == 'posix':
+            signal.signal(signal.SIGTERM, self._signal_catcher)
             signal.signal(signal.SIGALRM, self._signal_catcher)
             signal.signal(signal.SIGHUP, self._signal_catcher)
+        else:
+            # currently a noop on window...
+            signal.signal(signal.SIGTERM, self._signal_catcher)
+            # FIXME(sileht): should allow to catch signal CTRL_BREAK_EVENT,
+            # but we to create the child process with CREATE_NEW_PROCESS_GROUP
+            # to make this work, so current this is a noop for later fix
+            signal.signal(signal.SIGBREAK, self._signal_catcher)
 
     @staticmethod
     def _set_nonblock(fd):
@@ -117,9 +133,7 @@ class SignalManager(object):
         # NOTE(sileht): This is useful only for python < 3.5
         # in python >= 3.5 we could read the signal number
         # from the wakeup_fd pipe
-        if sig == getattr(signal, 'SIGALRM', None):
-            self._signals_received.appendleft(sig)
-        elif sig == signal.SIGTERM:
+        if sig in (SIGALRM, signal.SIGTERM):
             self._signals_received.appendleft(sig)
         else:
             self._signals_received.append(sig)
