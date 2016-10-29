@@ -23,6 +23,8 @@ import cotyledon
 from cotyledon import _utils
 from cotyledon import oslo_config_glue
 
+logging.basicConfig(level=logging.DEBUG)
+
 LOG = logging.getLogger("cotyledon.tests.examples")
 
 
@@ -117,7 +119,4 @@ def window_sanity_check():
 
 
 if __name__ == '__main__':
-    # NOTE(sileht): On window we have to reset it before
-    logging.getLogger('').handlers = []
-    logging.basicConfig(level=logging.DEBUG)
     globals()[sys.argv[1]]()

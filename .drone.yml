@@ -6,6 +6,4 @@ build:
     - pacman -S --needed --noconfirm --noprogressbar mingw-w64-i686-python2-pip
     - pip install -e .
     - pip install -r test-requirements.txt
-    - python cotyledon/tests/examples.py example_app
-    - python cotyledon/tests/examples.py window_sanity_check
-    - python -m unittest -v cotyledon.tests.test_cotyledon
+    - python -m unittest discover -v -s cotyledon/tests -t .
