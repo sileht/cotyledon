@@ -17,6 +17,7 @@ import re
 import signal
 import subprocess
 import time
+import unittest
 
 from cotyledon import oslo_config_glue
 from cotyledon.tests import base
@@ -99,22 +100,24 @@ class TestCotyledon(Base):
     def test_workflow(self):
         self.assert_everything_has_started()
 
-        # Ensure we just call reload method
-        os.kill(self.pid_heavy_1, signal.SIGHUP)
-        self.assertEqual(b"ERROR:cotyledon.tests.examples:heavy reload",
-                         self.subp.stdout.readline().strip())
+        if os.name == 'posix':
+            # Ensure we just call reload method
+            os.kill(self.pid_heavy_1, signal.SIGHUP)
+            self.assertEqual(b"ERROR:cotyledon.tests.examples:heavy reload",
+                             self.subp.stdout.readline().strip())
 
-        # Ensure we restart because reload method is missing
-        os.kill(self.pid_light_1, signal.SIGHUP)
-        lines = self.get_lines(3)
-        self.pid_light_1 = self.get_pid(lines[-1])
-        lines = self.hide_pids(lines)
-        self.assertEqual([
-            b'INFO:cotyledon._service:Caught SIGTERM signal, graceful '
-            b'exiting of service light(0) [XXXX]',
-            b'INFO:cotyledon._service_manager:Child XXXX exited with status 0',
-            b'DEBUG:cotyledon._service:Run service light(0) [XXXX]'
-        ], lines)
+            # Ensure we restart because reload method is missing
+            os.kill(self.pid_light_1, signal.SIGHUP)
+            lines = self.get_lines(3)
+            self.pid_light_1 = self.get_pid(lines[-1])
+            lines = self.hide_pids(lines)
+            self.assertEqual([
+                b'INFO:cotyledon._service:Caught SIGTERM signal, graceful '
+                b'exiting of service light(0) [XXXX]',
+                b'INFO:cotyledon._service_manager:Child XXXX exited '
+                b'with status 0',
+                b'DEBUG:cotyledon._service:Run service light(0) [XXXX]'
+            ], lines)
 
         # Ensure we restart with terminate method exit code
         os.kill(self.pid_heavy_1, signal.SIGTERM)
@@ -191,6 +194,7 @@ class TestCotyledon(Base):
         ], lines)
         self.assert_everything_is_dead(1)
 
+    @unittest.skipIf(os.name != 'posix', 'no posix support')
     def test_sighup(self):
         self.assert_everything_has_started()
         os.kill(self.subp.pid, signal.SIGHUP)
@@ -239,6 +243,7 @@ class TestCotyledon(Base):
 class TestBuggyCotyledon(Base):
     name = "buggy_app"
 
+    @unittest.skipIf(os.name != 'posix', 'no posix support')
     def test_graceful_timeout_term(self):
         lines = self.get_lines(1)
         childpid = self.get_pid(lines[0])
@@ -256,6 +261,7 @@ class TestBuggyCotyledon(Base):
             b'DEBUG:cotyledon._service_manager:Shutdown finish'
         ], lines[-2:])
 
+    @unittest.skipIf(os.name != 'posix', 'no posix support')
     def test_graceful_timeout_kill(self):
         lines = self.get_lines(1)
         childpid = self.get_pid(lines[0])
