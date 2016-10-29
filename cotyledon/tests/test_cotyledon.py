@@ -23,6 +23,32 @@ from cotyledon import oslo_config_glue
 from cotyledon.tests import base
 
 
+if os.name == 'posix':
+    def pid_exists(pid):
+        """Check whether pid exists in the current process table."""
+        import errno
+        if pid < 0:
+            return False
+        try:
+            os.kill(pid, 0)
+        except OSError as e:
+            return e.errno == errno.EPERM
+        else:
+            return True
+else:
+    def pid_exists(pid):
+        import ctypes
+        kernel32 = ctypes.windll.kernel32
+        SYNCHRONIZE = 0x100000
+
+        process = kernel32.OpenProcess(SYNCHRONIZE, 0, pid)
+        if process != 0:
+            kernel32.CloseHandle(process)
+            return True
+        else:
+            return False
+
+
 class Base(base.TestCase):
     def setUp(self):
         super(Base, self).setUp()
@@ -85,17 +111,17 @@ class TestCotyledon(Base):
         self.assert_everything_is_alive()
 
     def assert_everything_is_alive(self):
-        os.kill(self.subp.pid, 0)
-        os.kill(self.pid_light_1, 0)
-        os.kill(self.pid_heavy_1, 0)
-        os.kill(self.pid_heavy_2, 0)
+        self.assertTrue(pid_exists(self.subp.pid))
+        self.assertTrue(pid_exists(self.pid_light_1))
+        self.assertTrue(pid_exists(self.pid_heavy_1))
+        self.assertTrue(pid_exists(self.pid_heavy_2))
 
     def assert_everything_is_dead(self, status=0):
         self.assertEqual(status, self.subp.poll())
-        self.assertRaises(OSError, os.kill, self.subp.pid, 0)
-        self.assertRaises(OSError, os.kill, self.pid_heavy_2, 0)
-        self.assertRaises(OSError, os.kill, self.pid_heavy_1, 0)
-        self.assertRaises(OSError, os.kill, self.pid_light_1, 0)
+        self.assertFalse(pid_exists(self.subp.pid))
+        self.assertFalse(pid_exists(self.pid_light_1))
+        self.assertFalse(pid_exists(self.pid_heavy_1))
+        self.assertFalse(pid_exists(self.pid_heavy_2))
 
     def test_workflow(self):
         self.assert_everything_has_started()
@@ -148,10 +174,7 @@ class TestCotyledon(Base):
         ], lines)
 
         # Ensure everthing is still alive
-        os.kill(self.subp.pid, 0)
-        os.kill(self.pid_light_1, 0)
-        os.kill(self.pid_heavy_1, 0)
-        os.kill(self.pid_heavy_2, 0)
+        self.assert_everything_is_alive()
 
         # Kill master process
         os.kill(self.subp.pid, signal.SIGTERM)
@@ -250,8 +273,8 @@ class TestBuggyCotyledon(Base):
         self.subp.terminate()
         time.sleep(2)
         self.assertEqual(0, self.subp.poll())
-        self.assertRaises(OSError, os.kill, self.subp.pid, 0)
-        self.assertRaises(OSError, os.kill, childpid, 0)
+        self.assertFalse(pid_exists(self.subp.pid))
+        self.assertFalse(pid_exists(childpid))
         lines = self.hide_pids(self.get_lines())
         self.assertNotIn('ERROR:cotyledon.tests.examples:time.sleep done',
                          lines)
@@ -268,8 +291,8 @@ class TestBuggyCotyledon(Base):
         self.subp.kill()
         time.sleep(2)
         self.assertEqual(-9, self.subp.poll())
-        self.assertRaises(OSError, os.kill, self.subp.pid, 0)
-        self.assertRaises(OSError, os.kill, childpid, 0)
+        self.assertFalse(pid_exists(self.subp.pid))
+        self.assertFalse(pid_exists(childpid))
         lines = self.hide_pids(self.get_lines())
         self.assertNotIn('ERROR:cotyledon.tests.examples:time.sleep done',
                          lines)
