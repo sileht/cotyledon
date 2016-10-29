@@ -159,7 +159,7 @@ class TestCotyledon(Base):
         lines = self.get_lines()
         self.assertEqual(b'DEBUG:cotyledon._service_manager:Shutdown finish',
                          lines[-1])
-        time.sleep(0.5)
+        time.sleep(1)
         lines = sorted(self.hide_pids(lines))
         self.assertEqual([
             b'DEBUG:cotyledon._service_manager:Killing services with '
@@ -185,7 +185,7 @@ class TestCotyledon(Base):
     def test_sigint(self):
         self.assert_everything_has_started()
         os.kill(self.subp.pid, signal.SIGINT)
-        time.sleep(0.5)
+        time.sleep(1)
         lines = sorted(self.get_lines())
         lines = self.hide_pids(lines)
         self.assertEqual([
@@ -218,7 +218,7 @@ class TestCotyledon(Base):
     def test_sigkill(self):
         self.assert_everything_has_started()
         self.subp.kill()
-        time.sleep(0.5)
+        time.sleep(1)
         lines = sorted(self.get_lines())
         lines = self.hide_pids(lines)
         self.assertEqual([

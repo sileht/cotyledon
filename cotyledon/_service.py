@@ -203,7 +203,7 @@ class ServiceWorker(_utils.SignalManager):
     def _on_signal_received(self, sig):
         # Code below must not block to return to select.select() and catch
         # next signals
-        if sig == signal.SIGALRM:
+        if sig == getattr(signal, 'SIGALRM', None):
             LOG.info('Graceful shutdown timeout (%d) exceeded, '
                      'exiting %s now.' %
                      (self.service.graceful_shutdown_timeout,
@@ -214,10 +214,11 @@ class ServiceWorker(_utils.SignalManager):
             LOG.info('Caught SIGTERM signal, '
                      'graceful exiting of service %s' % self.title)
 
-            if self.service.graceful_shutdown_timeout > 0:
+            if (os.name == "posix" and
+                    self.service.graceful_shutdown_timeout > 0):
                 signal.alarm(self.service.graceful_shutdown_timeout)
             _utils.spawn(self.service._terminate)
-        elif sig == signal.SIGHUP:
+        elif sig == getattr(signal, 'SIGHUP', None):
             _utils.spawn(self.service._reload)
 
     def wait_forever(self):

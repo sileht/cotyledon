@@ -125,43 +125,36 @@ class SignalManager(object):
             self._signals_received.append(sig)
 
     def _wait_forever(self):
-        if os.name == "posix":
-            self._wait_forever_posix()
-        else:
-            self._wait_forever_non_posix()
-
-    def _wait_forever_non_posix(self):
-        # NOTE(sileht): here we do only best effort
-        # and wake the loop periodically, set_wakeup_fd
-        # doesn't work on non posix platform so
-        # 5 have been picked with the advice of a dice.
-        while True:
-            self._run_signal_handlers()
-            self._on_wakeup()
-            time.sleep(5)
-
-    def _wait_forever_posix(self):
         # Wait forever
         while True:
             # Check if signals have been received
-            self._empty_signal_pipe()
+            if os.name == "posix":
+                self._empty_signal_pipe()
             self._run_signal_handlers()
             self._on_wakeup()
 
-            # NOTE(sileht): we cannot use threading.Event().wait(),
-            # threading.Thread().join(), or time.sleep() because signals
-            # can be missed when received by non-main threads
-            # (https://bugs.python.org/issue5315)
-            # So we use select.select() alone, we will receive EINTR or will
-            # read data from signal_r when signal is emitted and cpython calls
-            # PyErr_CheckSignals() to run signals handlers That looks perfect
-            # to ensure handlers are run and run in the main thread
-            try:
-                select.select([self.signal_pipe_r], [], [],
-                              self._wakeup_interval)
-            except select.error as e:
-                if e.args[0] != errno.EINTR:
-                    raise
+            if os.name == "posix":
+                # NOTE(sileht): we cannot use threading.Event().wait(),
+                # threading.Thread().join(), or time.sleep() because signals
+                # can be missed when received by non-main threads
+                # (https://bugs.python.org/issue5315)
+                # So we use select.select() alone, we will receive EINTR or
+                # will read data from signal_r when signal is emitted and
+                # cpython calls PyErr_CheckSignals() to run signals handlers
+                # That looks perfect to ensure handlers are run and run in the
+                # main thread
+                try:
+                    select.select([self.signal_pipe_r], [], [],
+                                  self._wakeup_interval)
+                except select.error as e:
+                    if e.args[0] != errno.EINTR:
+                        raise
+            else:
+                # NOTE(sileht): here we do only best effort
+                # and wake the loop periodically, set_wakeup_fd
+                # doesn't work on non posix platform so
+                # 0.5 have been picked with the advice of a dice.
+                time.sleep(0.1)
 
     def _empty_signal_pipe(self):
         try:
