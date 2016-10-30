@@ -196,7 +196,11 @@ class ServiceWorker(_utils.SignalManager):
         if self._ready.is_set():
             LOG.info('Parent process has died unexpectedly, %s exiting'
                      % self.title)
-            self._on_signal_received(signal.SIGTERM)
+            if os.name == "posix":
+                os.kill(os.getpid(), signal.SIGTERM)
+            else:
+                # Fallback to process signal later
+                self._signals_received.appendleft(signal.SIGTERM)
         else:
             os._exit(0)
 
