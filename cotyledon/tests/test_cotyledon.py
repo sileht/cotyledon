@@ -151,28 +151,70 @@ class TestCotyledon(Base):
         self.assertFalse(pid_exists(self.pid_heavy_1))
         self.assertFalse(pid_exists(self.pid_heavy_2))
 
+    @unittest.skipIf(os.name == 'posix', 'no window support')
+    def test_workflow_window(self):
+        # NOTE(sileht): The window workflow is a bit different because
+        # SIGTERM doesn't really exists and processes are killed with SIGINT
+        # FIXME(sileht): Implements SIGBREAK to have graceful exists
+
+        self.assert_everything_has_started()
+        # Ensure we restart with terminate method exit code
+        os.kill(self.pid_heavy_1, signal.SIGTERM)
+        lines = self.get_lines(4)
+        lines = self.hide_pids(lines)
+        self.assertEqual([
+            b'INFO:cotyledon._service_manager:Child XXXX exited '
+            b'with status 15',
+            b'ERROR:cotyledon.tests.examples:heavy init',
+            b'DEBUG:cotyledon._service:Run service heavy(0) [XXXX]',
+            b'ERROR:cotyledon.tests.examples:heavy run',
+        ], lines)
+
+        # Kill master process
+        os.kill(self.subp.pid, signal.SIGTERM)
+        time.sleep(1)
+        lines = self.get_lines()
+        lines = sorted(self.hide_pids(lines))
+        self.assertEqual([
+            b'ERROR:cotyledon.tests.examples:heavy terminate',
+            b'ERROR:cotyledon.tests.examples:heavy terminate',
+            b'INFO:cotyledon._service:Caught SIGTERM signal, '
+            b'graceful exiting of service heavy(0) [XXXX]',
+            b'INFO:cotyledon._service:Caught SIGTERM signal, '
+            b'graceful exiting of service heavy(1) [XXXX]',
+            b'INFO:cotyledon._service:Caught SIGTERM signal, '
+            b'graceful exiting of service light(0) [XXXX]',
+            b'INFO:cotyledon._service:Parent process has died '
+            b'unexpectedly, heavy(0) [XXXX] exiting',
+            b'INFO:cotyledon._service:Parent process has died '
+            b'unexpectedly, heavy(1) [XXXX] exiting',
+            b'INFO:cotyledon._service:Parent process has died '
+            b'unexpectedly, light(0) [XXXX] exiting',
+        ], lines)
+
+        self.assertEqual(15, self.subp.poll())
+
     @unittest.skipIf(os.name != 'posix', 'no posix support')
     def test_workflow(self):
         self.assert_everything_has_started()
 
-        if os.name == 'posix':
-            # Ensure we just call reload method
-            os.kill(self.pid_heavy_1, signal.SIGHUP)
-            self.assertEqual([b"ERROR:cotyledon.tests.examples:heavy reload"],
-                             self.get_lines(1))
+        # Ensure we just call reload method
+        os.kill(self.pid_heavy_1, signal.SIGHUP)
+        self.assertEqual([b"ERROR:cotyledon.tests.examples:heavy reload"],
+                         self.get_lines(1))
 
-            # Ensure we restart because reload method is missing
-            os.kill(self.pid_light_1, signal.SIGHUP)
-            lines = self.get_lines(3)
-            self.pid_light_1 = self.get_pid(lines[-1])
-            lines = self.hide_pids(lines)
-            self.assertEqual([
-                b'INFO:cotyledon._service:Caught SIGTERM signal, graceful '
-                b'exiting of service light(0) [XXXX]',
-                b'INFO:cotyledon._service_manager:Child XXXX exited '
-                b'with status 0',
-                b'DEBUG:cotyledon._service:Run service light(0) [XXXX]'
-            ], lines)
+        # Ensure we restart because reload method is missing
+        os.kill(self.pid_light_1, signal.SIGHUP)
+        lines = self.get_lines(3)
+        self.pid_light_1 = self.get_pid(lines[-1])
+        lines = self.hide_pids(lines)
+        self.assertEqual([
+            b'INFO:cotyledon._service:Caught SIGTERM signal, graceful '
+            b'exiting of service light(0) [XXXX]',
+            b'INFO:cotyledon._service_manager:Child XXXX exited '
+            b'with status 0',
+            b'DEBUG:cotyledon._service:Run service light(0) [XXXX]'
+        ], lines)
 
         # Ensure we restart with terminate method exit code
         os.kill(self.pid_heavy_1, signal.SIGTERM)
