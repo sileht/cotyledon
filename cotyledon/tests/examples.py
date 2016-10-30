@@ -27,8 +27,11 @@ from cotyledon import oslo_config_glue
 if len(sys.argv) >= 3:
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     s.connect(("127.0.0.1", int(sys.argv[2])))
-    logging.basicConfig(level=logging.DEBUG,
-                        stream=s.makefile())
+    if os.name == "posix":
+        stream = os.fdopen(s.fileno(), 'w')
+    else:
+        stream = s.makefile()
+    logging.basicConfig(level=logging.DEBUG, stream=stream)
 else:
     logging.basicConfig(level=logging.DEBUG)
 
