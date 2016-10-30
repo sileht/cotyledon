@@ -32,7 +32,4 @@ Also signal handlers are only run every second instead of just after the
 signal reception because non-posix platform does not support
 signal.set_wakeup_fd correctly
 
-Application that uses the cotyledon.oslo_config_glue.setup will not be
-non-posix compatible due to oslo.config object that does not support pickle.
-
 And to finish, the processes names are not set on non-posix platform.

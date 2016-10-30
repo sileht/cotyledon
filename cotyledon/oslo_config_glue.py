@@ -13,6 +13,7 @@
 import copy
 import functools
 import logging
+import os
 
 from oslo_config import cfg
 
@@ -35,6 +36,9 @@ service_opts = [
 
 def _load_service_manager_options(service_manager, conf):
     service_manager.graceful_shutdown_timeout = conf.graceful_shutdown_timeout
+    if conf.log_options:
+        LOG.debug('Full set of CONF:')
+        conf.log_opt_values(LOG, logging.DEBUG)
 
 
 def _load_service_options(service, conf):
@@ -91,6 +95,11 @@ def setup(service_manager, conf, reload_method="reload"):
     def _service_manager_reload():
         _configfile_reload(conf, reload_method)
         _load_service_manager_options(service_manager, conf)
+
+    if os.name != "posix":
+        # NOTE(sileht): reloading can't be supported oslo.config is not pickle
+        # But we don't care SIGHUP is not support on window
+        return
 
     service_manager.register_hooks(
         on_new_worker=functools.partial(

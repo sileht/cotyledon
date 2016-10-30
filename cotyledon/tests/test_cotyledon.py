@@ -382,7 +382,6 @@ class TestBuggyCotyledon(Base):
 class TestOsloCotyledon(Base):
     name = "oslo_app"
 
-    @unittest.skipIf(os.name != 'posix', 'no posix support')
     def test_options(self):
         options = oslo_config_glue.list_opts()
         self.assertEqual(1, len(options))
@@ -390,7 +389,7 @@ class TestOsloCotyledon(Base):
         self.assertEqual(2, len(options[0][1]))
 
         lines = self.get_lines(1)
-        self.assertEqual(
+        self.assertIn(
             b'DEBUG:cotyledon.oslo_config_glue:Full set of CONF:',
-            lines[0])
+            lines)
         self.subp.terminate()
