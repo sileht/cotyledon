@@ -11,6 +11,7 @@
 # under the License.
 
 import copy
+import functools
 import logging
 
 from oslo_config import cfg
@@ -51,6 +52,15 @@ def _configfile_reload(conf, reload_method):
         conf.mutate_config_files()
 
 
+def _new_worker_hook(conf, reload_method, service_id, worker_id, service):
+    def _service_reload(service):
+        _configfile_reload(conf, reload_method)
+        _load_service_options(service, conf)
+
+    service._on_reload_internal_hook = _service_reload
+    _load_service_options(service, conf)
+
+
 def setup(service_manager, conf, reload_method="reload"):
     """Load services configuration from oslo config object.
 
@@ -82,16 +92,10 @@ def setup(service_manager, conf, reload_method="reload"):
         _configfile_reload(conf, reload_method)
         _load_service_manager_options(service_manager, conf)
 
-    def _service_reload(service):
-        _configfile_reload(conf, reload_method)
-        _load_service_options(service, conf)
-
-    def _new_worker_hook(service_id, worker_id, service):
-        service._on_reload_internal_hook = _service_reload
-        _load_service_options(service, conf)
-
-    service_manager.register_hooks(on_new_worker=_new_worker_hook,
-                                   on_reload=_service_manager_reload)
+    service_manager.register_hooks(
+        on_new_worker=functools.partial(
+            _new_worker_hook, conf, reload_method),
+        on_reload=_service_manager_reload)
 
 
 def list_opts():

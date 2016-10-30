@@ -340,6 +340,7 @@ class TestBuggyCotyledon(Base):
 class TestOsloCotyledon(Base):
     name = "oslo_app"
 
+    @unittest.skipIf(os.name != 'posix', 'no posix support')
     def test_options(self):
         options = oslo_config_glue.list_opts()
         self.assertEqual(1, len(options))
