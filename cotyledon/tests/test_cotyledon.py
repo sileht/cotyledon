@@ -15,7 +15,9 @@
 import os
 import re
 import signal
+import socket
 import subprocess
+import threading
 import time
 import unittest
 
@@ -52,28 +54,54 @@ else:
 class Base(base.TestCase):
     def setUp(self):
         super(Base, self).setUp()
+
+        self.lines = []
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.sock.bind(("127.0.0.1", 0))
+        self.t = threading.Thread(target=self.readlog)
+        self.t.daemon = True
+        self.t.start()
+
         examplepy = os.path.join(os.path.dirname(__file__),
                                  "examples.py")
         if os.name == 'posix':
-            preexec = os.setsid
+            kwargs = {
+                'preexec_fn': os.setsid
+            }
         else:
-            preexec = None
-        self.subp = subprocess.Popen(['python', examplepy, self.name],
-                                     stdout=subprocess.PIPE,
-                                     stderr=subprocess.STDOUT,
-                                     preexec_fn=preexec)
+            kwargs = {
+                'creationflags': subprocess.CREATE_NEW_PROCESS_GROUP
+            }
+
+        self.subp = subprocess.Popen(['python', examplepy, self.name,
+                                      str(self.sock.getsockname()[1])],
+                                     **kwargs)
+
+    def readlog(self):
+        try:
+            while True:
+                data, addr = self.sock.recvfrom(65565)
+                self.lines.append(data.strip())
+        except socket.error:
+            pass
 
     def tearDown(self):
         if self.subp.poll() is None:
-            os.kill(self.subp.pid, signal.SIGINT)
+            self.subp.kill()
         super(Base, self).tearDown()
 
     def get_lines(self, number=None):
         if number is not None:
-            return [self.subp.stdout.readline().strip() for i in
-                    range(number)]
+            while len(self.lines) < number:
+                time.sleep(0.1)
+            lines = self.lines[:number]
+            del self.lines[:number]
+            return lines
         else:
-            return [l.strip() for l in self.subp.stdout.readlines()]
+            self.subp.wait()
+            # Wait children to terminate
+            return self.lines
 
     @staticmethod
     def hide_pids(lines):
@@ -123,14 +151,15 @@ class TestCotyledon(Base):
         self.assertFalse(pid_exists(self.pid_heavy_1))
         self.assertFalse(pid_exists(self.pid_heavy_2))
 
+    @unittest.skipIf(os.name != 'posix', 'no posix support')
     def test_workflow(self):
         self.assert_everything_has_started()
 
         if os.name == 'posix':
             # Ensure we just call reload method
             os.kill(self.pid_heavy_1, signal.SIGHUP)
-            self.assertEqual(b"ERROR:cotyledon.tests.examples:heavy reload",
-                             self.subp.stdout.readline().strip())
+            self.assertEqual([b"ERROR:cotyledon.tests.examples:heavy reload"],
+                             self.get_lines(1))
 
             # Ensure we restart because reload method is missing
             os.kill(self.pid_light_1, signal.SIGHUP)
@@ -178,7 +207,7 @@ class TestCotyledon(Base):
 
         # Kill master process
         os.kill(self.subp.pid, signal.SIGTERM)
-        self.subp.terminate()
+
         lines = self.get_lines()
         self.assertEqual(b'DEBUG:cotyledon._service_manager:Shutdown finish',
                          lines[-1])
@@ -205,6 +234,7 @@ class TestCotyledon(Base):
 
         self.assert_everything_is_dead()
 
+    @unittest.skipIf(os.name != 'posix', 'http://bugs.python.org/issue18040')
     def test_sigint(self):
         self.assert_everything_has_started()
         os.kill(self.subp.pid, signal.SIGINT)
@@ -238,6 +268,7 @@ class TestCotyledon(Base):
         time.sleep(0.5)
         self.assert_everything_is_dead(1)
 
+    @unittest.skipIf(os.name != 'posix', 'no posix support')
     def test_sigkill(self):
         self.assert_everything_has_started()
         self.subp.kill()

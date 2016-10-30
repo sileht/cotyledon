@@ -13,6 +13,7 @@
 import logging
 import os
 import signal
+import socket
 import sys
 import threading
 import time
@@ -23,7 +24,13 @@ import cotyledon
 from cotyledon import _utils
 from cotyledon import oslo_config_glue
 
-logging.basicConfig(level=logging.DEBUG)
+if len(sys.argv) >= 3:
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.connect(("127.0.0.1", int(sys.argv[2])))
+    logging.basicConfig(level=logging.DEBUG,
+                        stream=s.makefile())
+else:
+    logging.basicConfig(level=logging.DEBUG)
 
 LOG = logging.getLogger("cotyledon.tests.examples")
 
