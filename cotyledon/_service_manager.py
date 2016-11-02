@@ -138,6 +138,10 @@ class ServiceManager(_utils.SignalManager):
         :param on_new_worker: method called in the child process when this one
                               is ready
         :type on_new_worker: callable(service_id, worker_id, service_obj)
+
+        If window support is planned, hooks callable must support
+        to be pickle.pickle(). See CPython multiprocessing module documentation
+        for more detail.
         """
 
         if on_terminate is not None:
