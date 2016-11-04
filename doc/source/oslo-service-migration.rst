@@ -2,10 +2,13 @@
 Oslo.service migration examples
 ===============================
 
-This example show the same applications with oslo.service and cotyledon.
+This example shows the same application with oslo.service and cotyledon.
 It uses a wide range of API of oslo.service, but most applications don't
 really uses all of this. In most case cotyledon.ServiceManager don't
 need to inherited.
+
+It doesn't show how to replace the periodic task API, if you use it
+you should take a look to `futurist documentation`_
 
 
 oslo.service typical application:
@@ -150,3 +153,5 @@ Other examples can be found here:
 * :doc:`examples`
 * https://github.com/openstack/gnocchi/blob/master/gnocchi/cli.py#L287
 * https://github.com/openstack/ceilometer/blob/master/ceilometer/cmd/collector.py
+
+.. _futurist documentation: <http://docs.openstack.org/developer/futurist/api.html#periodics>`
