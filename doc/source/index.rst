@@ -7,15 +7,19 @@ Welcome to cotyledon's documentation!
 ========================================================
 
 Contents:
+=========
 
 .. toctree::
    :maxdepth: 2
 
-   readme
    installation
    api
    examples
+   non-posix-support
+   oslo-service-migration
    contributing
+
+.. include:: ../../README.rst
 
 Indices and tables
 ==================

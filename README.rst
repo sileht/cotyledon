@@ -28,7 +28,7 @@ spawning, and more.
 * Bugs: https://github.com/sileht/cotyledon/issues
 
 Why Cotyledon
-=============
+-------------
 
 This library is mainly used in Openstack Telemetry projects for now. In the past
 oslo.service was used. But our projects don't want to use eventlet anymore.
@@ -48,12 +48,13 @@ And processes that doesn't exists as expected due to greenpipe never processed.
 Unlike oslo.service, cotyledon have:
 
 * The same code path when workers=1 and workers>=2
-* reload API (on SIGHUP) hooks work in case of you don't want to restarting children
-* a separated API for children process termination and for master process termination
-* seatbelt to ensure only one service workers manager run at a time.
+* Reload API (on SIGHUP) hooks work in case of you don't want to restarting children
+* A separated API for children process termination and for master process termination
+* Seatbelt to ensure only one service workers manager run at a time.
 * Is signal concurrency safe.
 * Support non posix platform, because it's built on top of multiprocessing module
   instead of os.fork
+* Provide functional testing
 
 And doesn't:
 

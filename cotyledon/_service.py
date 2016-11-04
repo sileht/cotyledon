@@ -47,6 +47,13 @@ class Service(object):
 
         :param worker_id: the identifier of this service instance
         :type worker_id: int
+
+        The identifier of the worker can be used for workload repartition
+        because it's consistent and always the same.
+
+        For example, if the number of workers for this service is 3,
+        one will got 0, the second got 1 and the last got 2.
+        if worker_id 1 died, the new spawned process will got 1 again.
         """
         super(Service, self).__init__()
         self._initialize(worker_id)
