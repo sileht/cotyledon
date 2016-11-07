@@ -37,6 +37,9 @@ else:
 
 LOG = logging.getLogger("cotyledon.tests.examples")
 
+# We don't want functional tests to wait for this:
+cotyledon.ServiceManager._slowdown_respawn_if_needed = lambda *args: True
+
 
 class FullService(cotyledon.Service):
     name = "heavy"

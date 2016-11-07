@@ -322,8 +322,8 @@ class ServiceManager(_utils.SignalManager):
             if time.time() - self._forktimes[0] < expected_children:
                 LOG.info('Forking too fast, sleeping')
                 time.sleep(1)
-                self._forktimes.pop(0)
-                self._forktimes.append(time.time())
+            self._forktimes.pop(0)
+        self._forktimes.append(time.time())
 
     def _start_worker(self, service_id, worker_id):
         self._slowdown_respawn_if_needed()
