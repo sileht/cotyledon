@@ -96,13 +96,14 @@ class ServiceManager(_utils.SignalManager):
             raise RuntimeError("Only one instance of ServiceManager per "
                                "application is allowed")
         ServiceManager._process_runner_already_created = True
-        super(ServiceManager, self).__init__(wait_interval)
+        super(ServiceManager, self).__init__()
 
         # We use OrderedDict to start services in adding order
         self._services = collections.OrderedDict()
         self._running_services = collections.defaultdict(dict)
         self._forktimes = []
         self._graceful_shutdown_timeout = graceful_shutdown_timeout
+        self._wait_interval = wait_interval
 
         self._hooks = {
             'terminate': [],
@@ -316,13 +317,14 @@ class ServiceManager(_utils.SignalManager):
         # number of workers * 1 second). This will allow workers to
         # start up quickly but ensure we don't fork off children that
         # die instantly too quickly.
-
         expected_children = sum(s.workers for s in self._services.values())
         if len(self._forktimes) > expected_children:
             if time.time() - self._forktimes[0] < expected_children:
                 LOG.info('Forking too fast, sleeping')
                 time.sleep(1)
             self._forktimes.pop(0)
+        else:
+            time.sleep(self._wait_interval)
         self._forktimes.append(time.time())
 
     def _start_worker(self, service_id, worker_id):

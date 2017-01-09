@@ -34,4 +34,4 @@ class SomeTest(base.TestCase):
             sm._slowdown_respawn_if_needed()
             sm._slowdown_respawn_if_needed()
             sm._slowdown_respawn_if_needed()
-            self.assertEqual(2, len(sleep.mock_calls))
+            self.assertEqual(6, len(sleep.mock_calls))

@@ -99,8 +99,7 @@ else:
 
 
 class SignalManager(object):
-    def __init__(self, wakeup_interval=None, master=False):
-        self._wakeup_interval = wakeup_interval
+    def __init__(self, master=False):
         # Setup signal fd, this allows signal to behave correctly
         if os.name == 'posix':
             self.signal_pipe_r, self.signal_pipe_w = os.pipe()
@@ -158,8 +157,7 @@ class SignalManager(object):
                 # That looks perfect to ensure handlers are run and run in the
                 # main thread
                 try:
-                    select.select([self.signal_pipe_r], [], [],
-                                  self._wakeup_interval)
+                    select.select([self.signal_pipe_r], [], [], 0.5)
                 except select.error as e:
                     if e.args[0] != errno.EINTR:
                         raise
@@ -168,7 +166,7 @@ class SignalManager(object):
                 # and wake the loop periodically, set_wakeup_fd
                 # doesn't work on non posix platform so
                 # 0.5 have been picked with the advice of a dice.
-                time.sleep(0.1)
+                time.sleep(0.5)
 
     def _empty_signal_pipe(self):
         try:
