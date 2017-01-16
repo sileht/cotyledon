@@ -110,6 +110,7 @@ class SignalManager(object):
         self._signals_received = collections.deque()
 
         signal.signal(signal.SIGINT, signal.SIG_DFL)
+        signal.signal(signal.SIGCHLD, signal.SIG_DFL)
         if os.name == 'posix':
             signal.signal(signal.SIGTERM, self._signal_catcher)
             signal.signal(signal.SIGALRM, self._signal_catcher)
@@ -144,7 +145,6 @@ class SignalManager(object):
             if os.name == "posix":
                 self._empty_signal_pipe()
             self._run_signal_handlers()
-            self._on_wakeup()
 
             if os.name == "posix":
                 # NOTE(sileht): we cannot use threading.Event().wait(),
@@ -157,7 +157,7 @@ class SignalManager(object):
                 # That looks perfect to ensure handlers are run and run in the
                 # main thread
                 try:
-                    select.select([self.signal_pipe_r], [], [], 0.5)
+                    select.select([self.signal_pipe_r], [], [])
                 except select.error as e:
                     if e.args[0] != errno.EINTR:
                         raise
@@ -182,9 +182,6 @@ class SignalManager(object):
             except IndexError:
                 return
             self._on_signal_received(sig)
-
-    def _on_wakeup(self):
-        pass
 
     def _on_signal_received(self, sig):
         pass
