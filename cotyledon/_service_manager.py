@@ -123,7 +123,8 @@ class ServiceManager(_utils.SignalManager):
         self._death_detection_pipe = multiprocessing.Pipe(duplex=False)
 
         signal.signal(signal.SIGINT, self._fast_exit)
-        signal.signal(signal.SIGCHLD, self._signal_catcher)
+        if os.name == 'posix':
+            signal.signal(signal.SIGCHLD, self._signal_catcher)
 
     def register_hooks(self, on_terminate=None, on_reload=None,
                        on_new_worker=None):
@@ -222,7 +223,7 @@ class ServiceManager(_utils.SignalManager):
             self._shutdown()
         elif sig == _utils.SIGHUP:
             self._reload()
-        elif sig == signal.SIGCHLD:
+        elif sig == _utils.SIGCHLD:
             self._spawn_missing_workers()
         else:
             LOG.debug("unhandled signal %s" % sig)

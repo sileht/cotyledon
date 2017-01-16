@@ -92,9 +92,11 @@ def exit_on_exception():
 if os.name == "posix":
     SIGALRM = signal.SIGALRM
     SIGHUP = signal.SIGHUP
+    SIGCHLD = signal.SIGCHLD
     SIBREAK = None
 else:
     SIGALRM = SIGHUP = None
+    SIGCHLD = "fake sigchld"
     SIGBREAK = signal.SIGBREAK
 
 
@@ -110,8 +112,8 @@ class SignalManager(object):
         self._signals_received = collections.deque()
 
         signal.signal(signal.SIGINT, signal.SIG_DFL)
-        signal.signal(signal.SIGCHLD, signal.SIG_DFL)
         if os.name == 'posix':
+            signal.signal(signal.SIGCHLD, signal.SIG_DFL)
             signal.signal(signal.SIGTERM, self._signal_catcher)
             signal.signal(signal.SIGALRM, self._signal_catcher)
             signal.signal(signal.SIGHUP, self._signal_catcher)
@@ -165,8 +167,11 @@ class SignalManager(object):
                 # NOTE(sileht): here we do only best effort
                 # and wake the loop periodically, set_wakeup_fd
                 # doesn't work on non posix platform so
-                # 0.5 have been picked with the advice of a dice.
-                time.sleep(0.5)
+                # 1 seconds have been picked with the advice of a dice.
+                time.sleep(1)
+                # NOTE(sileht): We emulate SIGCHLD, _service_manager
+                # will just check often for dead child
+                self._signals_received.append(SIGCHLD)
 
     def _empty_signal_pipe(self):
         try:
