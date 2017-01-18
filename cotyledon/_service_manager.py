@@ -326,7 +326,7 @@ class ServiceManager(_utils.SignalManager):
         if len(self._forktimes) > expected_children:
             if time.time() - self._forktimes[0] < expected_children:
                 LOG.info('Forking too fast, sleeping')
-                time.sleep(1)
+                time.sleep(5)
             self._forktimes.pop(0)
         else:
             time.sleep(self._wait_interval)
