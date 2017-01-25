@@ -44,6 +44,17 @@ def spawn(target, *args, **kwargs):
     return t
 
 
+def check_workers(workers, minimum):
+    if not isinstance(workers, int) or workers < minimum:
+        raise ValueError("'workers' must be an int >= %d, not: %s (%s)" %
+                         (minimum, workers, type(workers).__name__))
+
+
+def check_callable(thing, name):
+    if not hasattr(thing, "__call__"):
+        raise ValueError("'%s' must be a callable" % name)
+
+
 def _bootstrap_process(target, *args, **kwargs):
     if "fds_to_close" in kwargs:
         for fd in kwargs["fds_to_close"]:

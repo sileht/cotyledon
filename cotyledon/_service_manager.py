@@ -148,10 +148,13 @@ class ServiceManager(_utils.SignalManager):
         """
 
         if on_terminate is not None:
+            _utils.check_callable(on_terminate, 'on_terminate')
             self._hooks['terminate'].append(on_terminate)
         if on_reload is not None:
+            _utils.check_callable(on_reload, 'on_reload')
             self._hooks['reload'].append(on_reload)
         if on_new_worker is not None:
+            _utils.check_callable(on_new_worker, 'on_new_worker')
             self._hooks['new_worker'].append(on_new_worker)
 
     def _run_hooks(self, name, *args, **kwargs):
@@ -172,6 +175,8 @@ class ServiceManager(_utils.SignalManager):
         :return: a service id
         :rtype: uuid.uuid4
         """
+        _utils.check_callable(service, 'service')
+        _utils.check_workers(workers, 1)
         service_id = uuid.uuid4()
         self._services[service_id] = _service.ServiceConfig(
             service_id, service, workers, args, kwargs)
@@ -188,9 +193,10 @@ class ServiceManager(_utils.SignalManager):
         """
         try:
             sc = self._services[service_id]
-        except IndexError:
+        except KeyError:
             raise ValueError("%s service id doesn't exists" % service_id)
         else:
+            _utils.check_workers(workers, minimum=(1 - sc.workers))
             sc.workers = workers
             # Reset forktimes to respawn services quickly
             self._forktimes = []
