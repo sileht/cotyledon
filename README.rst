@@ -30,22 +30,27 @@ spawning, and more.
 Why Cotyledon
 -------------
 
-This library is mainly used in Openstack Telemetry projects for now. In the past
-oslo.service was used. But our projects don't want to use eventlet anymore.
+This library is mainly used in OpenStack Telemetry projects, in replacement of
+*oslo.service*. However, as *oslo.service* depends on *eventlet*, a different
+library was needed for project that do not need it. When an application do not
+monkeypatch the Python standard library anymore, greenlets do not in timely
+fashion. That made other libraries such as `Tooz
+<http://docs.openstack.org/developer/tooz/>`_ or `oslo.messaging
+<http://docs.openstack.org/developer/oslo.messaging/>`_ to fail with e.g. their
+heartbeat systems. Also, processes would not exist as expected due to
+greenpipes never being processed.
 
-oslo.service is written on top of eventlet to provide two main features:
+*oslo.service* is actually written on top of eventlet to provide two main
+features:
 
 * periodic tasks
 * workers processes management
 
-The first one was replaced by another Oslo lib called `futurist <http://docs.openstack.org/developer/futurist/>`_
-and the second part by *Cotyledon*.
+The first feature was replaced by another library called `futurist
+<http://docs.openstack.org/developer/futurist/>`_ and the second feature is
+superseded by *Cotyledon*.
 
-Our main issue was greenlet that doesn't run in timely fashion because we don't
-monkeypatch the python stdlib anymore. Making `Tooz <http://docs.openstack.org/developer/tooz/>`_/`Oslo.messaging <http://docs.openstack.org/developer/oslo.messaging/>`_ hearbeats to fail.
-And processes that doesn't exists as expected due to greenpipe never processed.
-
-Unlike oslo.service, cotyledon have:
+Unlike *oslo.service*, **Cotyledon** have:
 
 * The same code path when workers=1 and workers>=2
 * Reload API (on SIGHUP) hooks work in case of you don't want to restarting children
@@ -58,7 +63,8 @@ Unlike oslo.service, cotyledon have:
 
 And doesn't:
 
-* facilitate the creation of wsgi application (sockets sharing between parent and children process). Because too many wsgi webserver already exists.
+* facilitate the creation of wsgi application (sockets sharing between parent
+  and children process). Because too many wsgi webserver already exists.
 
-So these toohard to fix issues and the heavy eventlet dependencies make this
-library to appear.
+*oslo.service* being impossible to fix and bringing an heavy dependency on
+eventlet, **Cotyledon** appeared.
