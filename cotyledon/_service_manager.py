@@ -68,7 +68,7 @@ class ServiceManager(_utils.SignalManager):
         class MyManager(ServiceManager):
             def __init__(self):
                 super(MyManager, self).__init__()
-                self.register_hooks(on_reload=selfreload)
+                self.register_hooks(on_reload=self.reload)
 
                 conf = {'foobar': 2}
                 self.service_id = self.add(MyService, 5, conf)
