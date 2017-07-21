@@ -75,6 +75,11 @@ class BuggyService(cotyledon.Service):
         LOG.error("time.sleep done")
 
 
+class BadlyCodedService(cotyledon.Service):
+    def run(self):
+        raise Exception("so badly coded service")
+
+
 class OsloService(cotyledon.Service):
     name = "oslo"
 
@@ -129,6 +134,12 @@ def window_sanity_check():
     time.sleep(10)
     os.kill(os.getpid(), signal.SIGTERM)
     t.join()
+
+
+def badly_coded_app():
+    p = cotyledon.ServiceManager()
+    p.add(BadlyCodedService)
+    p.run()
 
 
 if __name__ == '__main__':

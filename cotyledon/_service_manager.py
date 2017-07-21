@@ -105,6 +105,14 @@ class ServiceManager(_utils.SignalManager):
         self._graceful_shutdown_timeout = graceful_shutdown_timeout
         self._wait_interval = wait_interval
 
+        self._dead = threading.Event()
+        # NOTE(sileht): Set it on startup, so first iteration
+        # will spawn initial workers
+        self._got_sig_chld = threading.Event()
+        self._got_sig_chld.set()
+
+        self._child_supervisor = None
+
         self._hooks = {
             'terminate': [],
             'reload': [],
@@ -211,16 +219,26 @@ class ServiceManager(_utils.SignalManager):
         """
 
         self._systemd_notify_once()
-        self._spawn_missing_workers()
+        self._child_supervisor = _utils.spawn(self._child_supervisor_thread)
         self._wait_forever()
 
-    def _spawn_missing_workers(self):
-        info = self._get_last_worker_died()
-        while info is not None:
-            service_id, worker_id = info
-            self._start_worker(service_id, worker_id)
+    def _child_supervisor_thread(self):
+        while not self._dead.is_set():
+            self._got_sig_chld.wait()
+            self._got_sig_chld.clear()
+
+            if self._dead.is_set():
+                    return
+
             info = self._get_last_worker_died()
-        self._adjust_workers()
+            while info is not None:
+                service_id, worker_id = info
+                self._start_worker(service_id, worker_id)
+                info = self._get_last_worker_died()
+                if self._dead.is_set():
+                    return
+
+            self._adjust_workers()
 
     def _on_signal_received(self, sig):
         if sig == _utils.SIGALRM:
@@ -230,7 +248,7 @@ class ServiceManager(_utils.SignalManager):
         elif sig == _utils.SIGHUP:
             self._reload()
         elif sig == _utils.SIGCHLD:
-            self._spawn_missing_workers()
+            self._got_sig_chld.set()
         else:
             LOG.debug("unhandled signal %s" % sig)
 
@@ -254,7 +272,6 @@ class ServiceManager(_utils.SignalManager):
     def _shutdown(self):
         LOG.info('Caught SIGTERM signal, graceful exiting of master process')
         signal.signal(signal.SIGTERM, signal.SIG_IGN)
-        signal.signal(signal.SIGCHLD, signal.SIG_DFL)
 
         if self._graceful_shutdown_timeout > 0:
             if os.name == "posix":
@@ -262,6 +279,11 @@ class ServiceManager(_utils.SignalManager):
             else:
                 threading.Timer(self._graceful_shutdown_timeout,
                                 self._alarm).start()
+
+        # NOTE(sileht): Stop the child supervisor
+        self._dead.set()
+        self._got_sig_chld.set()
+        self._child_supervisor.join()
 
         self._run_hooks('terminate')
 

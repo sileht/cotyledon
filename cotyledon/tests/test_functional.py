@@ -336,6 +336,18 @@ class TestCotyledon(Base):
         self.assert_everything_is_dead(-9)
 
 
+class TestBadlyCodedCotyledon(Base):
+    name = "badly_coded_app"
+
+    @unittest.skipIf(os.name != 'posix', 'no posix support')
+    def test_badly_coded(self):
+        time.sleep(0.5)
+        self.subp.terminate()
+        time.sleep(0.5)
+        self.assertEqual(0, self.subp.poll(), self.get_lines())
+        self.assertFalse(pid_exists(self.subp.pid))
+
+
 class TestBuggyCotyledon(Base):
     name = "buggy_app"
 
