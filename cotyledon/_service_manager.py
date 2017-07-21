@@ -254,6 +254,7 @@ class ServiceManager(_utils.SignalManager):
     def _shutdown(self):
         LOG.info('Caught SIGTERM signal, graceful exiting of master process')
         signal.signal(signal.SIGTERM, signal.SIG_IGN)
+        signal.signal(signal.SIGCHLD, signal.SIG_DFL)
 
         if self._graceful_shutdown_timeout > 0:
             if os.name == "posix":
