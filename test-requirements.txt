@@ -17,4 +17,3 @@ os-testr
 # docs
 sphinx_rtd_theme
 sphinx
-oslosphinx>=2.5.0 # Apache-2.0
