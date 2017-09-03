@@ -244,7 +244,7 @@ class TestCotyledon(Base):
             b'DEBUG:cotyledon._service:Run service light(0) [XXXX]',
         ], lines)
 
-        # Ensure everthing is still alive
+        # Ensure everything is still alive
         self.assert_everything_is_alive()
 
         # Kill master process
