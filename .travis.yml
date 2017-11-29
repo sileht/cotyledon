@@ -1,8 +1,7 @@
-sudo: false
-language: python
-python: 3.5
+sudo: true
+language: generic
 install:
-      - pip install tox
+      - sudo pip install -U pip tox
 script:
       - tox
 env:
