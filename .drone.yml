@@ -4,6 +4,5 @@ build:
   pull: true
   commands:
     - pacman -S --needed --noconfirm --noprogressbar mingw-w64-i686-python2-pip
-    - pip install -e .
-    - pip install -r test-requirements.txt
+    - pip install -e .[test,oslo]
     - python -m unittest discover -v -s cotyledon/tests -t . -f
