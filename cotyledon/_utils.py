@@ -112,7 +112,7 @@ else:
 
 
 class SignalManager(object):
-    def __init__(self, master=False):
+    def __init__(self):
         # Setup signal fd, this allows signal to behave correctly
         if os.name == 'posix':
             self.signal_pipe_r, self.signal_pipe_w = os.pipe()
