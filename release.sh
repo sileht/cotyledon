@@ -4,7 +4,7 @@ set -e
 set -x
 
 version=$1
-[ ! "$version"] && version=$(python setup.py --version | sed 's/\.dev.*//')
+[ ! "$version" ] && version=$(python setup.py --version | sed 's/\.dev.*//')
 
 status=$(git status -sz)
 [ -z "$status" ] || false

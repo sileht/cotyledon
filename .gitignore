@@ -53,3 +53,5 @@ ChangeLog
 *~
 .*.swp
 .*sw?
+
+.pytest_cache
