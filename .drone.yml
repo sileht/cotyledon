@@ -1,8 +1,0 @@
-build:
-  image: teaci/msys32
-  shell: mingw32
-  pull: true
-  commands:
-    - pacman -S --needed --noconfirm --noprogressbar mingw-w64-i686-python2-pip
-    - pip install -e .[test,oslo]
-    - python -m unittest discover -v -s cotyledon/tests -t . -f
