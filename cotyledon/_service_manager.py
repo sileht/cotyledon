@@ -318,7 +318,7 @@ class ServiceManager(_utils.SignalManager):
 
     def _get_last_worker_died(self):
         """Return the last died worker information or None"""
-        for service_id in self._running_services:
+        for service_id in list(self._running_services.keys()):
             # We copy the list to clean the orignal one
             processes = list(self._running_services[service_id].items())
             for process, worker_id in processes:
