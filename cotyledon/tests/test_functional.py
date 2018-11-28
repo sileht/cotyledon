@@ -105,8 +105,8 @@ class Base(base.TestCase):
 
     @staticmethod
     def hide_pids(lines):
-        return [re.sub(b"Child \d+", b"Child XXXX",
-                       re.sub(b" \[[^\]]*\]", b" [XXXX]", line))
+        return [re.sub(b"Child \\d+", b"Child XXXX",
+                       re.sub(b" \\[[^\\]]*\\]", b" [XXXX]", line))
                 for line in lines]
 
     @staticmethod
