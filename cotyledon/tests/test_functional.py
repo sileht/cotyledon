@@ -341,9 +341,9 @@ class TestBadlyCodedCotyledon(Base):
 
     @unittest.skipIf(os.name != 'posix', 'no posix support')
     def test_badly_coded(self):
-        time.sleep(0.5)
+        time.sleep(2)
         self.subp.terminate()
-        time.sleep(0.5)
+        time.sleep(2)
         self.assertEqual(0, self.subp.poll(), self.get_lines())
         self.assertFalse(pid_exists(self.subp.pid))
 
