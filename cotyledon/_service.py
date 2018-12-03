@@ -165,7 +165,8 @@ class ServiceWorker(_utils.SignalManager):
                  started_hooks, graceful_shutdown_timeout):
         super(ServiceWorker, self).__init__()
         self._ready = threading.Event()
-        _utils.spawn(self._watch_parent_process, parent_pipe)
+        if parent_pipe is not None:
+            _utils.spawn(self._watch_parent_process, parent_pipe)
 
         # Reseed random number generator
         random.seed()

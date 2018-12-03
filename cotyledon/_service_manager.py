@@ -219,7 +219,21 @@ class ServiceManager(_utils.SignalManager):
         """
 
         self._systemd_notify_once()
-        self._child_supervisor = _utils.spawn(self._child_supervisor_thread)
+        # On Windows, avoid creating subprocesses unless really needed.
+        # Forking is out of the question and "multiprocessing" may not help
+        # either as service objects aren't usually picklable.
+        if len(self._services) == 1 and os.name == 'nt':
+            service_id, conf = self._services.items()[0]
+            _service.ServiceWorker.create_and_wait(
+                conf,
+                service_id,
+                0,  # worker id
+                None,  # death detection pipe
+                self._hooks['new_worker'],
+                self._graceful_shutdown_timeout)
+        else:
+            self._child_supervisor = _utils.spawn(
+                self._child_supervisor_thread)
         self._wait_forever()
 
     def _child_supervisor_thread(self):
