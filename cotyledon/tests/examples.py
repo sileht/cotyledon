@@ -156,5 +156,17 @@ def exit_on_special_child_app():
     p.run()
 
 
+def sigterm_during_init():
+
+    def kill():
+        os.kill(os.getpid(), signal.SIGTERM)
+
+    # Kill in 0.01 sec
+    threading.Timer(0.01, kill).start()
+    p = cotyledon.ServiceManager()
+    p.add(LigthService, 10)
+    p.run()
+
+
 if __name__ == '__main__':
     globals()[sys.argv[1]]()

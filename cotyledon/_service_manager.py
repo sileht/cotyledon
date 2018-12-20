@@ -293,6 +293,12 @@ class ServiceManager(_utils.SignalManager):
         self._got_sig_chld.set()
         self._child_supervisor.join()
 
+        # NOTE(sileht): During startup if we receive SIGTERM, python
+        # multiprocess may fork the process after we send the killpg(0)
+        # To workaround the issue we sleep a bit, so multiprocess can finish
+        # its work.
+        time.sleep(0.1)
+
         self._run_hooks('terminate')
 
         LOG.debug("Killing services with signal SIGTERM")
