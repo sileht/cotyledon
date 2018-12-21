@@ -117,6 +117,7 @@ class ServiceManager(_utils.SignalManager):
             'terminate': [],
             'reload': [],
             'new_worker': [],
+            'dead_worker': [],
         }
 
         _utils.setproctitle("%s: master process [%s]" %
@@ -135,7 +136,7 @@ class ServiceManager(_utils.SignalManager):
             signal.signal(signal.SIGCHLD, self._signal_catcher)
 
     def register_hooks(self, on_terminate=None, on_reload=None,
-                       on_new_worker=None):
+                       on_new_worker=None, on_dead_worker=None):
         """Register hook methods
 
         This can be callable multiple times to add more hooks, hooks are
@@ -149,6 +150,8 @@ class ServiceManager(_utils.SignalManager):
         :param on_new_worker: method called in the child process when this one
                               is ready
         :type on_new_worker: callable(service_id, worker_id, service_obj)
+        :param on_new_worker: method called when a child died
+        :type on_new_worker: callable(service_id, worker_id, exit_code)
 
         If window support is planned, hooks callable must support
         to be pickle.pickle(). See CPython multiprocessing module documentation
@@ -164,6 +167,9 @@ class ServiceManager(_utils.SignalManager):
         if on_new_worker is not None:
             _utils.check_callable(on_new_worker, 'on_new_worker')
             self._hooks['new_worker'].append(on_new_worker)
+        if on_dead_worker is not None:
+            _utils.check_callable(on_dead_worker, 'on_dead_worker')
+            self._hooks['dead_worker'].append(on_dead_worker)
 
     def _run_hooks(self, name, *args, **kwargs):
         _utils.run_hooks(name, self._hooks[name], *args, **kwargs)
@@ -227,16 +233,13 @@ class ServiceManager(_utils.SignalManager):
             self._got_sig_chld.wait()
             self._got_sig_chld.clear()
 
-            if self._dead.is_set():
-                    return
-
             info = self._get_last_worker_died()
             while info is not None:
+                if self._dead.is_set():
+                    return
                 service_id, worker_id = info
                 self._start_worker(service_id, worker_id)
                 info = self._get_last_worker_died()
-                if self._dead.is_set():
-                    return
 
             self._adjust_workers()
 
@@ -268,6 +271,11 @@ class ServiceManager(_utils.SignalManager):
         signal.signal(signal.SIGHUP, signal.SIG_IGN)
         os.killpg(0, signal.SIGHUP)
         signal.signal(signal.SIGHUP, self._signal_catcher)
+
+    def shutdown(self):
+        LOG.info("Manager shutdown requested")
+        os.kill(os.getpid(), signal.SIGTERM)
+        self._dead.wait()
 
     def _shutdown(self):
         LOG.info('Caught SIGTERM signal, graceful exiting of master process')
@@ -323,6 +331,8 @@ class ServiceManager(_utils.SignalManager):
             processes = list(self._running_services[service_id].items())
             for process, worker_id in processes:
                 if not process.is_alive():
+                    self._run_hooks('dead_worker', service_id, worker_id,
+                                    process.exitcode)
                     if process.exitcode < 0:
                         sig = _utils.signal_to_name(process.exitcode)
                         LOG.info('Child %(pid)d killed by signal %(sig)s',

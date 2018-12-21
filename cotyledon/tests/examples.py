@@ -142,5 +142,19 @@ def badly_coded_app():
     p.run()
 
 
+def exit_on_special_child_app():
+    p = cotyledon.ServiceManager()
+    sid = p.add(LigthService, 1)
+    p.add(FullService, 2)
+
+    def on_dead_worker(service_id, worker_id, exit_code):
+        # Shutdown everybody if LigthService died
+        if service_id == sid:
+            p.shutdown()
+
+    p.register_hooks(on_dead_worker=on_dead_worker)
+    p.run()
+
+
 if __name__ == '__main__':
     globals()[sys.argv[1]]()
