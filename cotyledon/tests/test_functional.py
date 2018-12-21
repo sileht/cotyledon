@@ -405,3 +405,12 @@ class TestOsloCotyledon(Base):
             b'DEBUG:cotyledon.oslo_config_glue:Full set of CONF:',
             lines)
         self.subp.terminate()
+
+
+class TestTermDuringStartupCotyledon(Base):
+    name = 'sigterm_during_init'
+
+    def test_sigterm(self):
+        lines = self.hide_pids(self.get_lines())
+        self.assertIn(b'DEBUG:cotyledon._service_manager:Shutdown finish',
+                      lines)
