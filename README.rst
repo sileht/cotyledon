@@ -13,9 +13,6 @@ Cotyledon
 .. image:: https://travis-ci.org/sileht/cotyledon.png?branch=master
    :target: https://travis-ci.org/sileht/cotyledon
 
-.. image:: https://tea-ci.org/api/badges/sileht/cotyledon/status.svg
-   :target: https://tea-ci.org/sileht/cotyledon
-
 Cotyledon provides a framework for defining long-running services.
 
 It provides handling of Unix signals, spawning of workers, supervision of
