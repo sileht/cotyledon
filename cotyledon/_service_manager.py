@@ -403,7 +403,7 @@ class ServiceManager(_utils.SignalManager):
             if _id == worker_id:
                 # FIXME(sileht): We should use CTRL_BREAK_EVENT on windows
                 # when CREATE_NEW_PROCESS_GROUP will be set on child process
-                process.terminte()
+                process.terminate()
 
     @staticmethod
     def _systemd_notify_once():
