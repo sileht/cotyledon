@@ -327,7 +327,7 @@ class ServiceManager(_utils.SignalManager):
                 for worker_id in range(running_workers, conf.workers):
                     self._start_worker(service_id, worker_id)
             elif running_workers > conf.workers:
-                for worker_id in range(running_workers, conf.workers):
+                for worker_id in range(conf.workers, running_workers):
                     self._stop_worker(service_id, worker_id)
 
     def _get_last_worker_died(self):
