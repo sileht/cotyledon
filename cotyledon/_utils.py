@@ -34,7 +34,7 @@ _SIGNAL_TO_NAME = dict((getattr(signal, name), name) for name in dir(signal)
 
 
 def signal_to_name(sig):
-    return _SIGNAL_TO_NAME.get(sig)
+    return _SIGNAL_TO_NAME.get(sig, sig)
 
 
 def spawn(target, *args, **kwargs):
