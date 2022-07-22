@@ -2,8 +2,7 @@
 Cotyledon
 ===============================
 
-
-
+⚠️ not maintained anymore ⚠️
 
 .. image:: https://img.shields.io/pypi/v/cotyledon.svg
    :target: https://pypi.python.org/pypi/cotyledon/
@@ -68,3 +67,6 @@ And doesn't:
 
 *oslo.service* being impossible to fix and bringing an heavy dependency on
 eventlet, **Cotyledon** appeared.
+
+
+
