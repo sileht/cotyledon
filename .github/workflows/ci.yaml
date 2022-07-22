@@ -14,13 +14,13 @@ jobs:
     strategy:
       matrix: 
         include:
-          - version: 2.7
+          - version: "2.7"
             target: py27
-          - version: 3.7
+          - version: "3.7"
             target: py37
-          - version: 3.10
+          - version: "3.10"
             target: py310
-          - version: 3.10
+          - version: "3.10"
             target: pep8
     steps:
       - name: Checkout 🛎️
@@ -35,4 +35,5 @@ jobs:
 
       - name: Build 🔧 & Test 🔍
         run: |
+          pip install tox
           tox -e ${{ matrix.target }}
