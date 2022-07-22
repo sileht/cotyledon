@@ -22,15 +22,17 @@ import sys
 import threading
 import time
 
-if os.name == 'posix':
+if os.name == "posix":
     import fcntl
 
 LOG = logging.getLogger(__name__)
 
 
-_SIGNAL_TO_NAME = dict((getattr(signal, name), name) for name in dir(signal)
-                       if name.startswith("SIG") and name not in ('SIG_DFL',
-                                                                  'SIG_IGN'))
+_SIGNAL_TO_NAME = dict(
+    (getattr(signal, name), name)
+    for name in dir(signal)
+    if name.startswith("SIG") and name not in ("SIG_DFL", "SIG_IGN")
+)
 
 
 def signal_to_name(sig):
@@ -46,8 +48,10 @@ def spawn(target, *args, **kwargs):
 
 def check_workers(workers, minimum):
     if not isinstance(workers, int) or workers < minimum:
-        raise ValueError("'workers' must be an int >= %d, not: %s (%s)" %
-                         (minimum, workers, type(workers).__name__))
+        raise ValueError(
+            "'workers' must be an int >= %d, not: %s (%s)"
+            % (minimum, workers, type(workers).__name__)
+        )
 
 
 def check_callable(thing, name):
@@ -64,8 +68,11 @@ def _bootstrap_process(target, *args, **kwargs):
 
 
 def spawn_process(*args, **kwargs):
-    p = multiprocessing.Process(target=_bootstrap_process,
-                                args=args, kwargs=kwargs)
+    p = multiprocessing.Process(
+        target=_bootstrap_process,
+        args=args,
+        kwargs=kwargs
+    )
     p.start()
     return p
 
@@ -73,6 +80,7 @@ def spawn_process(*args, **kwargs):
 try:
     from setproctitle import setproctitle
 except ImportError:
+
     def setproctitle(*args, **kwargs):
         pass
 
@@ -96,7 +104,7 @@ def exit_on_exception():
     except SystemExit as exc:
         os._exit(exc.code)
     except BaseException:
-        LOG.exception('Unhandled exception')
+        LOG.exception("Unhandled exception")
         os._exit(2)
 
 
@@ -114,7 +122,7 @@ else:
 class SignalManager(object):
     def __init__(self):
         # Setup signal fd, this allows signal to behave correctly
-        if os.name == 'posix':
+        if os.name == "posix":
             self.signal_pipe_r, self.signal_pipe_w = os.pipe()
             self._set_nonblock(self.signal_pipe_r)
             self._set_nonblock(self.signal_pipe_w)
@@ -123,7 +131,7 @@ class SignalManager(object):
         self._signals_received = collections.deque()
 
         signal.signal(signal.SIGINT, signal.SIG_DFL)
-        if os.name == 'posix':
+        if os.name == "posix":
             signal.signal(signal.SIGCHLD, signal.SIG_DFL)
             signal.signal(signal.SIGTERM, self._signal_catcher)
             signal.signal(signal.SIGALRM, self._signal_catcher)
