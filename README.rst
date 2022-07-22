@@ -2,6 +2,8 @@
 Cotyledon
 ===============================
 
+⚠️ not maintained anymore ⚠️
+
 .. image:: https://img.shields.io/pypi/v/cotyledon.svg
    :target: https://pypi.python.org/pypi/cotyledon/
    :alt: Latest Version
