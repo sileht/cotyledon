@@ -35,8 +35,8 @@ class Service(object):
     """
 
     name = None
-    """Service name used in the process title and the log messages in additionnal
-    of the worker_id."""
+    """Service name used in the process title and the log messages in
+    additional of the worker_id."""
 
     graceful_shutdown_timeout = None
     """Timeout after which a gracefully shutdown service will exit. zero means
@@ -201,8 +201,8 @@ class ServiceWorker(_utils.SignalManager):
             pass
 
         if self._ready.is_set():
-            LOG.info('Parent process has died unexpectedly, %s exiting'
-                     % self.title)
+            LOG.info('Parent process has died unexpectedly, %s exiting',
+                     self.title)
             if os.name == "posix":
                 os.kill(os.getpid(), signal.SIGTERM)
             else:
@@ -213,9 +213,9 @@ class ServiceWorker(_utils.SignalManager):
 
     def _alarm(self):
         LOG.info('Graceful shutdown timeout (%d) exceeded, '
-                 'exiting %s now.' %
-                 (self.service.graceful_shutdown_timeout,
-                  self.title))
+                 'exiting %s now.',
+                 self.service.graceful_shutdown_timeout,
+                 self.title)
         os._exit(1)
 
     def _on_signal_received(self, sig):
@@ -225,7 +225,7 @@ class ServiceWorker(_utils.SignalManager):
             self._alarm()
         elif sig == signal.SIGTERM:
             LOG.info('Caught SIGTERM signal, '
-                     'graceful exiting of service %s' % self.title)
+                     'graceful exiting of service %s', self.title)
 
             if self.service.graceful_shutdown_timeout > 0:
                 if os.name == "posix":
@@ -238,6 +238,6 @@ class ServiceWorker(_utils.SignalManager):
             _utils.spawn(self.service._reload)
 
     def wait_forever(self):
-        LOG.debug("Run service %s" % self.title)
+        LOG.debug("Run service %s", self.title)
         _utils.spawn(self.service._run)
         super(ServiceWorker, self)._wait_forever()

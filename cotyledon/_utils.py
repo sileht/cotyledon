@@ -94,7 +94,7 @@ def run_hooks(name, hooks, *args, **kwargs):
         for hook in hooks:
             hook(*args, **kwargs)
     except Exception:
-        LOG.exception("Exception raised during %s hooks" % name)
+        LOG.exception("Exception raised during %s hooks", name)
 
 
 @contextlib.contextmanager
