@@ -47,19 +47,19 @@ class FullService(cotyledon.Service):
     def __init__(self, worker_id):
         super(FullService, self).__init__(worker_id)
         self._shutdown = threading.Event()
-        LOG.error("%s init" % self.name)
+        LOG.error("%s init", self.name)
 
     def run(self):
-        LOG.error("%s run" % self.name)
+        LOG.error("%s run", self.name)
         self._shutdown.wait()
 
     def terminate(self):
-        LOG.error("%s terminate" % self.name)
+        LOG.error("%s terminate", self.name)
         self._shutdown.set()
         sys.exit(42)
 
     def reload(self):
-        LOG.error("%s reload" % self.name)
+        LOG.error("%s reload", self.name)
 
 
 class LigthService(cotyledon.Service):

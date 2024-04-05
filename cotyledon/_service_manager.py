@@ -253,7 +253,7 @@ class ServiceManager(_utils.SignalManager):
         elif sig == _utils.SIGCHLD:
             self._got_sig_chld.set()
         else:
-            LOG.debug("unhandled signal %s" % sig)
+            LOG.debug("unhandled signal %s", sig)
 
     def _alarm(self):
         self._fast_exit(reason='Graceful shutdown timeout exceeded, '
