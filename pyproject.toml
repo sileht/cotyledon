@@ -2,6 +2,52 @@
 requires = ["setuptools", "setuptools_scm"]
 build-backend = "setuptools.build_meta"
 
+[project]
+name = "cotyledon"
+description = "Cotyledon provides a framework for defining long-running services."
+readme = "README.rst"
+authors = [
+    {name = "Mehdi Abaakouk", email = "sileht@sileht.net"}
+]
+classifiers = [
+   "Intended Audience :: Information Technology",
+   "Intended Audience :: System Administrators",
+   "License :: OSI Approved :: Apache Software License",
+   "Operating System :: POSIX :: Linux",
+   "Programming Language :: Python",
+   "Programming Language :: Python :: 3",
+   "Programming Language :: Python :: 3.9",
+   "Programming Language :: Python :: 3.10",
+   "Programming Language :: Python :: 3.11",
+   "Programming Language :: Python :: 3.12",
+]
+dynamic = ["version"]
+requires-python = ">= 3.9"
+dependencies = [
+  "setproctitle; sys_platform != 'win32'"
+]
+[project.optional-dependencies]
+test = [
+    "mock",
+    "pytest",
+    "pytest-cov",
+    "pytest-xdist"
+]
+oslo = [
+    "oslo.config>=3.14.0",
+]
+doc = [
+    "sphinx_rtd_theme",
+    "sphinx"
+]
+
+[project.entry-points."oslo.config.opts"]
+"cotyledon" = "cotyledon.oslo_config_glue:list_opts"
+
+[project.urls]
+"Home Page" = "https://github.com/sileht/cotyledon"
+
+[tool.setuptools_scm]
 
 [tool.ruff]
 line-length = 88
