@@ -20,10 +20,12 @@ jobs:
             target: py39
           - version: "3.10"
             target: py310
+          - version: "3.11"
+            target: py311
+          - version: "3.12"
+            target: py312
           - version: "3.10"
             target: pep8
-          - version: "3.11"
-            target: py38
     steps:
       - name: Checkout 🛎️
         uses: actions/checkout@v3
