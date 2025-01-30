@@ -228,7 +228,7 @@ class ServiceWorker(_utils.SignalManager):
         # next signals
         if sig == _utils.SIGALRM:
             self._alarm()
-        if sig == _utils.SIGINT:
+        if sig == signal.SIGINT:
             self._fast_exit()
         elif sig == signal.SIGTERM:
             LOG.info('Caught SIGTERM signal, '
