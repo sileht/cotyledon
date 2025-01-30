@@ -4,7 +4,7 @@ set -e
 set -x
 
 version=$1
-[ ! "$version" ] && version=$(python setup.py --version | sed 's/\.dev.*//')
+[ ! "$version" ] && echo "missing version" && exit 1
 
 status=$(git status -sz)
 [ -z "$status" ] || false
@@ -31,5 +31,5 @@ set -x
 
 read
 git push --tags
-twine upload -r pypi -s dist/cotyledon-${version}.tar.gz dist/cotyledon-${version}-py2.py3-none-any.whl
+twine upload -r pypi -s dist/cotyledon-${version}.tar.gz dist/cotyledon-${version}-py3-none-any.whl
 git checkout main
