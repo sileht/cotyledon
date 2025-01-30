@@ -17,8 +17,6 @@ jobs:
     strategy:
       matrix: 
         include:
-          - version: "3.8"
-            target: py38
           - version: "3.9"
             target: py39
           - version: "3.10"
