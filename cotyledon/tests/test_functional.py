@@ -283,6 +283,9 @@ class TestCotyledon(Base):
         lines = sorted(self.get_lines())
         lines = self.hide_pids(lines)
         self.assertEqual([
+            b'INFO:cotyledon._service:Caught SIGINT signal, instantaneous exiting of service heavy(0) [XXXX]',
+            b'INFO:cotyledon._service:Caught SIGINT signal, instantaneous exiting of service heavy(1) [XXXX]',
+            b'INFO:cotyledon._service:Caught SIGINT signal, instantaneous exiting of service light(0) [XXXX]',
             b'INFO:cotyledon._service_manager:Caught SIGINT signal, instantaneous exiting',
         ], lines)
         self.assert_everything_is_dead(1)
