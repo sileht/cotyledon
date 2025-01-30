@@ -50,9 +50,7 @@ def spawn(target, *args, **kwargs):
 
 def check_workers(workers, minimum) -> None:
     if not isinstance(workers, int) or workers < minimum:
-        msg = (
-            f"'workers' must be an int >= {minimum}, not: {workers} ({type(workers).__name__})"
-        )
+        msg = f"'workers' must be an int >= {minimum}, not: {workers} ({type(workers).__name__})"
         raise ValueError(msg)
 
 
