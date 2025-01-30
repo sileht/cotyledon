@@ -11,7 +11,7 @@ status=$(git status -sz)
 git checkout main
 [ -z "$SKIP_TESTS" ] && tox -epy312,pep8
 git push
-git tag -s $version -m "Release version ${version}"
+git tag $version -m "Release version ${version}"
 git checkout $version
 git clean -fd
 tox -e build
