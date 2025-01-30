@@ -15,6 +15,7 @@ import contextlib
 import errno
 import logging
 import multiprocessing
+import traceback
 import os
 import select
 import signal
@@ -62,7 +63,10 @@ def check_callable(thing, name):
 def _bootstrap_process(target, *args, **kwargs):
     if "fds_to_close" in kwargs:
         for fd in kwargs["fds_to_close"]:
-            os.close(fd)
+            try:
+                os.close(fd)
+            except OSError:
+                traceback.print_exc()
         del kwargs["fds_to_close"]
     target(*args, **kwargs)
 
