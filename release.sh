@@ -14,12 +14,7 @@ git push
 git tag -s $version -m "Release version ${version}"
 git checkout $version
 git clean -fd
-pbr_version=$(python setup.py --version)
-if [ "$version" != "$pbr_version" ]; then
-    echo "something goes wrong pbr version is different from the provided one. ($pbr_version != $version)"
-    exit 1
-fi
-python setup.py sdist bdist_wheel
+tox -e build
 
 set +x
 echo
