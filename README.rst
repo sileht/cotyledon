@@ -10,9 +10,6 @@ Cotyledon
    :target: https://pypi.python.org/pypi/cotyledon/
    :alt: Downloads
 
-.. image:: https://travis-ci.org/sileht/cotyledon.png?branch=master
-   :target: https://travis-ci.org/sileht/cotyledon
-
 Cotyledon provides a framework for defining long-running services.
 
 It provides handling of Unix signals, spawning of workers, supervision of
