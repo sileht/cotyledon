@@ -13,7 +13,6 @@
 import logging
 import os
 import signal
-import socket
 import sys
 import threading
 import time
@@ -24,16 +23,7 @@ import cotyledon
 from cotyledon import _utils
 from cotyledon import oslo_config_glue
 
-if len(sys.argv) >= 3:
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    s.connect(("127.0.0.1", int(sys.argv[2])))
-    if os.name == "posix":
-        stream = os.fdopen(s.fileno(), 'w')
-    else:
-        stream = s.makefile()
-    logging.basicConfig(level=logging.DEBUG, stream=stream)
-else:
-    logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.DEBUG, stream=sys.stdout)
 
 LOG = logging.getLogger("cotyledon.tests.examples")
 
@@ -170,3 +160,4 @@ def sigterm_during_init():
 
 if __name__ == '__main__':
     globals()[sys.argv[1]]()
+

@@ -15,7 +15,6 @@
 import os
 import re
 import signal
-import socket
 import subprocess
 import threading
 import time
@@ -56,12 +55,6 @@ class Base(base.TestCase):
         super(Base, self).setUp()
 
         self.lines = []
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.sock.bind(("127.0.0.1", 0))
-        self.t = threading.Thread(target=self.readlog)
-        self.t.daemon = True
-        self.t.start()
 
         examplepy = os.path.join(os.path.dirname(__file__),
                                  "examples.py")
@@ -74,17 +67,23 @@ class Base(base.TestCase):
                 'creationflags': subprocess.CREATE_NEW_PROCESS_GROUP
             }
 
-        self.subp = subprocess.Popen(['python', examplepy, self.name,
-                                      str(self.sock.getsockname()[1])],
+        self.subp = subprocess.Popen(['python', examplepy, self.name],
+                                     stdout=subprocess.PIPE,
                                      **kwargs)
 
+        self.t = threading.Thread(target=self.readlog)
+        self.t.daemon = True
+        self.t.start()
+
     def readlog(self):
-        try:
-            while True:
-                data, addr = self.sock.recvfrom(65565)
-                self.lines.append(data.strip())
-        except socket.error:
-            pass
+        while True:
+            try:
+                line = self.subp.stdout.readline()
+            except OSError:
+                return
+            if not line:
+                continue
+            self.lines.append(line.strip())
 
     def tearDown(self):
         if self.subp.poll() is None:
@@ -284,8 +283,7 @@ class TestCotyledon(Base):
         lines = sorted(self.get_lines())
         lines = self.hide_pids(lines)
         self.assertEqual([
-            b'INFO:cotyledon._service_manager:Caught SIGINT signal, '
-            b'instantaneous exiting',
+            b'INFO:cotyledon._service_manager:Caught SIGINT signal, instantaneous exiting',
         ], lines)
         self.assert_everything_is_dead(1)
 
