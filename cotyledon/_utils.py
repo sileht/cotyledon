@@ -130,13 +130,14 @@ class SignalManager(object):
 
         self._signals_received = collections.deque()
 
-        signal.signal(signal.SIGINT, signal.SIG_DFL)
         if os.name == "posix":
             signal.signal(signal.SIGCHLD, signal.SIG_DFL)
+            signal.signal(signal.SIGINT, self._signal_catcher)
             signal.signal(signal.SIGTERM, self._signal_catcher)
             signal.signal(signal.SIGALRM, self._signal_catcher)
             signal.signal(signal.SIGHUP, self._signal_catcher)
         else:
+            signal.signal(signal.SIGINT, self._signal_catcher)
             # currently a noop on window...
             signal.signal(signal.SIGTERM, self._signal_catcher)
             # FIXME(sileht): should allow to catch signal CTRL_BREAK_EVENT,
@@ -154,7 +155,7 @@ class SignalManager(object):
         # NOTE(sileht): This is useful only for python < 3.5
         # in python >= 3.5 we could read the signal number
         # from the wakeup_fd pipe
-        if sig in (SIGALRM, signal.SIGTERM):
+        if sig in (SIGALRM, signal.SIGTERM, signal.SIGINT):
             self._signals_received.appendleft(sig)
         else:
             self._signals_received.append(sig)

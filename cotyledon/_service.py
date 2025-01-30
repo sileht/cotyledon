@@ -218,11 +218,18 @@ class ServiceWorker(_utils.SignalManager):
                  self.title)
         os._exit(1)
 
+    def _fast_exit(self):
+        LOG.info('Caught SIGINT signal, '
+                 'instantaneous exiting of service %s', self.title)
+        os._exit(1)
+
     def _on_signal_received(self, sig):
         # Code below must not block to return to select.select() and catch
         # next signals
         if sig == _utils.SIGALRM:
             self._alarm()
+        if sig == _utils.SIGINT:
+            self._fast_exit()
         elif sig == signal.SIGTERM:
             LOG.info('Caught SIGTERM signal, '
                      'graceful exiting of service %s', self.title)

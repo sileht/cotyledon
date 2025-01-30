@@ -131,7 +131,6 @@ class ServiceManager(_utils.SignalManager):
 
         self._death_detection_pipe = multiprocessing.Pipe(duplex=False)
 
-        signal.signal(signal.SIGINT, self._fast_exit)
         if os.name == 'posix':
             signal.signal(signal.SIGCHLD, self._signal_catcher)
 
@@ -246,6 +245,8 @@ class ServiceManager(_utils.SignalManager):
     def _on_signal_received(self, sig):
         if sig == _utils.SIGALRM:
             self._alarm()
+        elif sig == signal.SIGINT:
+            self._fast_exit()
         elif sig == signal.SIGTERM:
             self._shutdown()
         elif sig == _utils.SIGHUP:
