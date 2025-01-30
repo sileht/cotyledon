@@ -12,5 +12,8 @@
 
 
 # Public API
-from cotyledon._service import Service  # noqa
-from cotyledon._service_manager import ServiceManager  # noqa
+from cotyledon._service import Service
+from cotyledon._service_manager import ServiceManager
+
+
+__all__ = ["Service", "ServiceManager"]

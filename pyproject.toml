@@ -1,3 +1,105 @@
 [build-system]
 requires = ["setuptools", "setuptools_scm"]
 build-backend = "setuptools.build_meta"
+
+
+[tool.ruff]
+line-length = 88
+indent-width = 4
+target-version = "py311"
+exclude = ["doc/source/conf.py"]
+
+[tool.ruff.lint]
+preview = true
+select = [
+    "F",
+    "E",
+    "W",
+    "I",
+    "N",
+    "UP",
+    "YTT",
+    # "ANN", # mypy
+    "ASYNC",
+    "S",
+    "BLE",
+    "FBT",
+    "B",
+    "A",
+    "COM",
+    "C4",
+    "DTZ",
+    "T10",
+    "EM",
+    "FA",
+    "ISC",
+    "ICN",
+    "G",
+    "INP",
+    "PIE",
+    "T20",
+    "PYI",
+    "PT",
+    "Q",
+    "RSE",
+    "RET",
+    "SLF",
+    "SLOT",
+    "SIM",
+    "TID",
+    "TCH",
+    "INT",
+    # "ARG", # unused args
+    # "PTH", # pathlib.Path
+    "TD",
+    "ERA",
+    "PGH",
+    "PL",
+    "TRY",
+    "FLY",
+    "NPY",
+    "PERF",
+    "FURB",
+    "LOG",
+    "RUF",
+]
+
+ignore = [
+    # NOTE(charly): line-length is up to the formatter
+    "E501",
+    # NOTE(charly): `subprocess` module is possibly insecure
+    "S404",
+    # NOTE(jd): likely a false positive https://github.com/PyCQA/bandit/issues/333
+    "S603",
+    # NOTE(charly): Starting a process with a partial executable path
+    "S607",
+    # NOTE(charly): Boolean-typed positional argument in function definition.
+    # Interesting, but require some work.
+    "FBT001",
+    # NOTE(charly): Boolean default positional argument in function definition.
+    # Interesting, but require some work.
+    "FBT002",
+    # NOTE(charly): Missing issue link on the line following this TODO
+    "TD003",
+    # NOTE(charly): Magic value used in comparison
+    "PLR2004",
+    # List comprehensions are most efficient in most cases now
+    "PLR1702",
+    # We use mock.patch.object, which automatically pass the mock as an
+    # argument to the test if no `new` is specified, without needing the mock
+    # itself.
+    "PT019",
+    # We don't want to enforce the number of statements
+    "PLR0914", "PLR0912", "PLR0915",
+]
+[tool.ruff.lint.per-file-ignores]
+"cotyledon/tests/*.py" = ["S101", "SLF001"]
+
+[tool.ruff.lint.isort]
+force-single-line = true
+force-sort-within-sections = true
+lines-after-imports = 2
+known-first-party = ["cotyledon"]
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"

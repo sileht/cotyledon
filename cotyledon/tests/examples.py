@@ -16,12 +16,14 @@ import signal
 import sys
 import threading
 import time
+from typing import Never
 
 from oslo_config import cfg
 
 import cotyledon
 from cotyledon import _utils
 from cotyledon import oslo_config_glue
+
 
 logging.basicConfig(level=logging.DEBUG, stream=sys.stdout)
 
@@ -34,21 +36,21 @@ cotyledon.ServiceManager._slowdown_respawn_if_needed = lambda *args: True
 class FullService(cotyledon.Service):
     name = "heavy"
 
-    def __init__(self, worker_id):
-        super(FullService, self).__init__(worker_id)
+    def __init__(self, worker_id) -> None:
+        super().__init__(worker_id)
         self._shutdown = threading.Event()
         LOG.error("%s init", self.name)
 
-    def run(self):
+    def run(self) -> None:
         LOG.error("%s run", self.name)
         self._shutdown.wait()
 
-    def terminate(self):
+    def terminate(self) -> None:
         LOG.error("%s terminate", self.name)
         self._shutdown.set()
         sys.exit(42)
 
-    def reload(self):
+    def reload(self) -> None:
         LOG.error("%s reload", self.name)
 
 
@@ -60,14 +62,19 @@ class BuggyService(cotyledon.Service):
     name = "buggy"
     graceful_shutdown_timeout = 1
 
-    def terminate(self):
+    def terminate(self) -> None:  # noqa: PLR6301
         time.sleep(60)
         LOG.error("time.sleep done")
 
 
+class BoomError(Exception):
+    pass
+
+
 class BadlyCodedService(cotyledon.Service):
-    def run(self):
-        raise Exception("so badly coded service")
+    def run(self) -> Never:  # noqa: PLR6301
+        msg = "so badly coded service"
+        raise BoomError(msg)
 
 
 class OsloService(cotyledon.Service):
@@ -78,19 +85,19 @@ class WindowService(cotyledon.Service):
     name = "window"
 
 
-def on_terminate():
+def on_terminate() -> None:
     LOG.error("master terminate hook")
 
 
-def on_terminate2():
+def on_terminate2() -> None:
     LOG.error("master terminate2 hook")
 
 
-def on_reload():
+def on_reload() -> None:
     LOG.error("master reload hook")
 
 
-def example_app():
+def example_app() -> None:
     p = cotyledon.ServiceManager()
     p.add(FullService, 2)
     service_id = p.add(LigthService, 5)
@@ -100,16 +107,15 @@ def example_app():
     p.run()
 
 
-def buggy_app():
+def buggy_app() -> None:
     p = cotyledon.ServiceManager()
     p.add(BuggyService)
     p.run()
 
 
-def oslo_app():
+def oslo_app() -> None:
     conf = cfg.ConfigOpts()
-    conf([], project='openstack-app', validate_default_values=True,
-         version="0.1")
+    conf([], project="openstack-app", validate_default_values=True, version="0.1")
 
     p = cotyledon.ServiceManager()
     oslo_config_glue.setup(p, conf)
@@ -117,7 +123,7 @@ def oslo_app():
     p.run()
 
 
-def window_sanity_check():
+def window_sanity_check() -> None:
     p = cotyledon.ServiceManager()
     p.add(LigthService)
     t = _utils.spawn(p.run)
@@ -126,18 +132,18 @@ def window_sanity_check():
     t.join()
 
 
-def badly_coded_app():
+def badly_coded_app() -> None:
     p = cotyledon.ServiceManager()
     p.add(BadlyCodedService)
     p.run()
 
 
-def exit_on_special_child_app():
+def exit_on_special_child_app() -> None:
     p = cotyledon.ServiceManager()
     sid = p.add(LigthService, 1)
     p.add(FullService, 2)
 
-    def on_dead_worker(service_id, worker_id, exit_code):
+    def on_dead_worker(service_id, worker_id, exit_code) -> None:
         # Shutdown everybody if LigthService died
         if service_id == sid:
             p.shutdown()
@@ -146,9 +152,8 @@ def exit_on_special_child_app():
     p.run()
 
 
-def sigterm_during_init():
-
-    def kill():
+def sigterm_during_init() -> None:
+    def kill() -> None:
         os.kill(os.getpid(), signal.SIGTERM)
 
     # Kill in 0.01 sec
@@ -158,6 +163,5 @@ def sigterm_during_init():
     p.run()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     globals()[sys.argv[1]]()
-

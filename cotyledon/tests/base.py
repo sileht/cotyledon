@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 # Copyright 2010-2011 OpenStack Foundation
 # Copyright (c) 2013 Hewlett-Packard Development Company, L.P.
 #
@@ -19,5 +17,4 @@ from unittest import TestCase
 
 
 class TestCase(TestCase):
-
     """Test case base class for all unit tests."""

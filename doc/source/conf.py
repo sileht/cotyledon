@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -15,13 +14,14 @@
 import os
 import sys
 
-sys.path.insert(0, os.path.abspath('../..'))
+
+sys.path.insert(0, os.path.abspath("../.."))
 # -- General configuration ----------------------------------------------------
 
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
 extensions = [
-    'sphinx.ext.autodoc',
+    "sphinx.ext.autodoc",
 ]
 
 # autodoc generation is a bit aggressive and a nuisance when doing heavy
@@ -29,14 +29,14 @@ extensions = [
 # execute "export SPHINX_DEBUG=1" in your terminal to disable
 
 # The suffix of source filenames.
-source_suffix = '.rst'
+source_suffix = ".rst"
 
 # The master toctree document.
-master_doc = 'index'
+master_doc = "index"
 
 # General information about the project.
-project = u'cotyledon'
-copyright = u'2016, Mehdi Abaakouk'
+project = "cotyledon"
+copyright = "2016, Mehdi Abaakouk"
 
 # If true, '()' will be appended to :func: etc. cross-reference text.
 add_function_parentheses = True
@@ -46,7 +46,7 @@ add_function_parentheses = True
 add_module_names = True
 
 # The name of the Pygments (syntax highlighting) style to use.
-pygments_style = 'sphinx'
+pygments_style = "sphinx"
 
 # -- Options for HTML output --------------------------------------------------
 
@@ -61,20 +61,20 @@ try:
 except ImportError:
     pass
 else:
-    html_theme = 'sphinx_rtd_theme'
+    html_theme = "sphinx_rtd_theme"
     html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = '%sdoc' % project
+htmlhelp_basename = "%sdoc" % project
 
 # Grouping the document tree into LaTeX files. List of tuples
 # (source start file, target name, title, author, documentclass
 # [howto/manual]).
 latex_documents = [
-    ('index',
-     '%s.tex' % project,
-     u'%s Documentation' % project,
-     u'Mehdi Abaakouk', 'manual'),
+    ("index",
+     "%s.tex" % project,
+     "%s Documentation" % project,
+     "Mehdi Abaakouk", "manual"),
 ]
 
 

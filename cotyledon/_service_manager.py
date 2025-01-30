@@ -22,9 +22,9 @@ import threading
 import time
 import uuid
 
-
 from cotyledon import _service
 from cotyledon import _utils
+
 
 LOG = logging.getLogger(__name__)
 
@@ -84,7 +84,7 @@ class ServiceManager(_utils.SignalManager):
 
     _process_runner_already_created = False
 
-    def __init__(self, wait_interval=0.01, graceful_shutdown_timeout=60):
+    def __init__(self, wait_interval=0.01, graceful_shutdown_timeout=60) -> None:
         """Creates the ServiceManager object
 
         :param wait_interval: time between each new process spawn
@@ -93,10 +93,10 @@ class ServiceManager(_utils.SignalManager):
         """
 
         if self._process_runner_already_created:
-            raise RuntimeError("Only one instance of ServiceManager per "
-                               "application is allowed")
+            msg = "Only one instance of ServiceManager per application is allowed"
+            raise RuntimeError(msg)
         ServiceManager._process_runner_already_created = True
-        super(ServiceManager, self).__init__()
+        super().__init__()
 
         # We use OrderedDict to start services in adding order
         self._services = collections.OrderedDict()
@@ -114,28 +114,35 @@ class ServiceManager(_utils.SignalManager):
         self._child_supervisor = None
 
         self._hooks = {
-            'terminate': [],
-            'reload': [],
-            'new_worker': [],
-            'dead_worker': [],
+            "terminate": [],
+            "reload": [],
+            "new_worker": [],
+            "dead_worker": [],
         }
 
-        _utils.setproctitle("%s: master process [%s]" %
-                            (_utils.get_process_name(), " ".join(sys.argv)))
+        _utils.setproctitle(
+            "{}: master process [{}]".format(
+                _utils.get_process_name(),
+                " ".join(sys.argv),
+            ),
+        )
 
         # Try to create a session id if possible
-        try:
+        with contextlib.suppress(OSError, AttributeError):
             os.setsid()
-        except (OSError, AttributeError):
-            pass
 
         self._death_detection_pipe = multiprocessing.Pipe(duplex=False)
 
-        if os.name == 'posix':
+        if os.name == "posix":
             signal.signal(signal.SIGCHLD, self._signal_catcher)
 
-    def register_hooks(self, on_terminate=None, on_reload=None,
-                       on_new_worker=None, on_dead_worker=None):
+    def register_hooks(
+        self,
+        on_terminate=None,
+        on_reload=None,
+        on_new_worker=None,
+        on_dead_worker=None,
+    ) -> None:
         """Register hook methods
 
         This can be callable multiple times to add more hooks, hooks are
@@ -158,19 +165,19 @@ class ServiceManager(_utils.SignalManager):
         """
 
         if on_terminate is not None:
-            _utils.check_callable(on_terminate, 'on_terminate')
-            self._hooks['terminate'].append(on_terminate)
+            _utils.check_callable(on_terminate, "on_terminate")
+            self._hooks["terminate"].append(on_terminate)
         if on_reload is not None:
-            _utils.check_callable(on_reload, 'on_reload')
-            self._hooks['reload'].append(on_reload)
+            _utils.check_callable(on_reload, "on_reload")
+            self._hooks["reload"].append(on_reload)
         if on_new_worker is not None:
-            _utils.check_callable(on_new_worker, 'on_new_worker')
-            self._hooks['new_worker'].append(on_new_worker)
+            _utils.check_callable(on_new_worker, "on_new_worker")
+            self._hooks["new_worker"].append(on_new_worker)
         if on_dead_worker is not None:
-            _utils.check_callable(on_dead_worker, 'on_dead_worker')
-            self._hooks['dead_worker'].append(on_dead_worker)
+            _utils.check_callable(on_dead_worker, "on_dead_worker")
+            self._hooks["dead_worker"].append(on_dead_worker)
 
-    def _run_hooks(self, name, *args, **kwargs):
+    def _run_hooks(self, name, *args, **kwargs) -> None:
         _utils.run_hooks(name, self._hooks[name], *args, **kwargs)
 
     def add(self, service, workers=1, args=None, kwargs=None):
@@ -188,14 +195,19 @@ class ServiceManager(_utils.SignalManager):
         :return: a service id
         :rtype: uuid.uuid4
         """
-        _utils.check_callable(service, 'service')
+        _utils.check_callable(service, "service")
         _utils.check_workers(workers, 1)
         service_id = uuid.uuid4()
         self._services[service_id] = _service.ServiceConfig(
-            service_id, service, workers, args, kwargs)
+            service_id,
+            service,
+            workers,
+            args,
+            kwargs,
+        )
         return service_id
 
-    def reconfigure(self, service_id, workers):
+    def reconfigure(self, service_id, workers) -> None:
         """Reconfigure a service registered in ServiceManager
 
         :param service_id: the service id
@@ -207,14 +219,15 @@ class ServiceManager(_utils.SignalManager):
         try:
             sc = self._services[service_id]
         except KeyError:
-            raise ValueError("%s service id doesn't exists" % service_id)
+            msg = f"{service_id} service id doesn't exists"
+            raise ValueError(msg) from None
         else:
             _utils.check_workers(workers, minimum=(1 - sc.workers))
             sc.workers = workers
             # Reset forktimes to respawn services quickly
             self._forktimes = []
 
-    def run(self):
+    def run(self) -> None:
         """Start and supervise services workers
 
         This method will start and supervise all children processes
@@ -227,7 +240,7 @@ class ServiceManager(_utils.SignalManager):
         self._child_supervisor = _utils.spawn(self._child_supervisor_thread)
         self._wait_forever()
 
-    def _child_supervisor_thread(self):
+    def _child_supervisor_thread(self) -> None:
         while not self._dead.is_set():
             self._got_sig_chld.wait()
             self._got_sig_chld.clear()
@@ -242,7 +255,7 @@ class ServiceManager(_utils.SignalManager):
 
             self._adjust_workers()
 
-    def _on_signal_received(self, sig):
+    def _on_signal_received(self, sig) -> None:
         if sig == _utils.SIGALRM:
             self._alarm()
         elif sig == signal.SIGINT:
@@ -256,16 +269,18 @@ class ServiceManager(_utils.SignalManager):
         else:
             LOG.debug("unhandled signal %s", sig)
 
-    def _alarm(self):
-        self._fast_exit(reason='Graceful shutdown timeout exceeded, '
-                        'instantaneous exiting of master process')
+    def _alarm(self) -> None:
+        self._fast_exit(
+            reason="Graceful shutdown timeout exceeded, "
+            "instantaneous exiting of master process",
+        )
 
-    def _reload(self):
+    def _reload(self) -> None:
         """reload all children
 
         posix only
         """
-        self._run_hooks('reload')
+        self._run_hooks("reload")
 
         # Reset forktimes to respawn services quickly
         self._forktimes = []
@@ -273,21 +288,20 @@ class ServiceManager(_utils.SignalManager):
         os.killpg(0, signal.SIGHUP)
         signal.signal(signal.SIGHUP, self._signal_catcher)
 
-    def shutdown(self):
+    def shutdown(self) -> None:
         LOG.info("Manager shutdown requested")
         os.kill(os.getpid(), signal.SIGTERM)
         self._dead.wait()
 
-    def _shutdown(self):
-        LOG.info('Caught SIGTERM signal, graceful exiting of master process')
+    def _shutdown(self) -> None:
+        LOG.info("Caught SIGTERM signal, graceful exiting of master process")
         signal.signal(signal.SIGTERM, signal.SIG_IGN)
 
         if self._graceful_shutdown_timeout > 0:
             if os.name == "posix":
                 signal.alarm(self._graceful_shutdown_timeout)
             else:
-                threading.Timer(self._graceful_shutdown_timeout,
-                                self._alarm).start()
+                threading.Timer(self._graceful_shutdown_timeout, self._alarm).start()
 
         # NOTE(sileht): Stop the child supervisor
         self._dead.set()
@@ -300,10 +314,10 @@ class ServiceManager(_utils.SignalManager):
         # its work.
         time.sleep(0.1)
 
-        self._run_hooks('terminate')
+        self._run_hooks("terminate")
 
         LOG.debug("Killing services with signal SIGTERM")
-        if os.name == 'posix':
+        if os.name == "posix":
             os.killpg(0, signal.SIGTERM)
 
         LOG.debug("Waiting services to terminate")
@@ -312,7 +326,7 @@ class ServiceManager(_utils.SignalManager):
                 if os.name != "posix":
                     # NOTE(sileht): we don't have killpg so we
                     # kill all known processes instead
-                    # FIXME(sileht): We should use CTRL_BREAK_EVENT on windows
+                    # NOTE(sileht): We should use CTRL_BREAK_EVENT on windows
                     # when CREATE_NEW_PROCESS_GROUP will be set on child
                     # process
                     process.terminate()
@@ -321,7 +335,7 @@ class ServiceManager(_utils.SignalManager):
         LOG.debug("Shutdown finish")
         sys.exit(0)
 
-    def _adjust_workers(self):
+    def _adjust_workers(self) -> None:
         for service_id, conf in self._services.items():
             running_workers = len(self._running_services[service_id])
             if running_workers < conf.workers:
@@ -338,21 +352,34 @@ class ServiceManager(_utils.SignalManager):
             processes = list(self._running_services[service_id].items())
             for process, worker_id in processes:
                 if not process.is_alive():
-                    self._run_hooks('dead_worker', service_id, worker_id,
-                                    process.exitcode)
+                    self._run_hooks(
+                        "dead_worker",
+                        service_id,
+                        worker_id,
+                        process.exitcode,
+                    )
                     if process.exitcode < 0:
                         sig = _utils.signal_to_name(process.exitcode)
-                        LOG.info('Child %(pid)d killed by signal %(sig)s',
-                                 dict(pid=process.pid, sig=sig))
+                        LOG.info(
+                            "Child %(pid)d killed by signal %(sig)s",
+                            {"pid": process.pid, "sig": sig},
+                        )
                     else:
-                        LOG.info('Child %(pid)d exited with status %(code)d',
-                                 dict(pid=process.pid, code=process.exitcode))
+                        LOG.info(
+                            "Child %(pid)d exited with status %(code)d",
+                            {"pid": process.pid, "code": process.exitcode},
+                        )
                     del self._running_services[service_id][process]
                     return service_id, worker_id
+        return None
 
-    def _fast_exit(self, signo=None, frame=None,
-                   reason='Caught SIGINT signal, instantaneous exiting'):
-        if os.name == 'posix':
+    @staticmethod
+    def _fast_exit(
+        signo=None,
+        frame=None,
+        reason="Caught SIGINT signal, instantaneous exiting",
+    ) -> None:
+        if os.name == "posix":
             signal.signal(signal.SIGINT, signal.SIG_IGN)
             signal.signal(signal.SIGALRM, signal.SIG_IGN)
             LOG.info(reason)
@@ -363,7 +390,7 @@ class ServiceManager(_utils.SignalManager):
             LOG.info(reason)
         os._exit(1)
 
-    def _slowdown_respawn_if_needed(self):
+    def _slowdown_respawn_if_needed(self) -> None:
         # Limit ourselves to one process a second (over the period of
         # number of workers * 1 second). This will allow workers to
         # start up quickly but ensure we don't fork off children that
@@ -371,20 +398,17 @@ class ServiceManager(_utils.SignalManager):
         expected_children = sum(s.workers for s in self._services.values())
         if len(self._forktimes) > expected_children:
             if time.time() - self._forktimes[0] < expected_children:
-                LOG.info('Forking too fast, sleeping')
+                LOG.info("Forking too fast, sleeping")
                 time.sleep(5)
             self._forktimes.pop(0)
         else:
             time.sleep(self._wait_interval)
         self._forktimes.append(time.time())
 
-    def _start_worker(self, service_id, worker_id):
+    def _start_worker(self, service_id, worker_id) -> None:
         self._slowdown_respawn_if_needed()
 
-        if os.name == "posix":
-            fds = [self.signal_pipe_w, self.signal_pipe_r]
-        else:
-            fds = []
+        fds = [self.signal_pipe_w, self.signal_pipe_r] if os.name == "posix" else []
 
         # Create and run a new service
         p = _utils.spawn_process(
@@ -393,21 +417,22 @@ class ServiceManager(_utils.SignalManager):
             service_id,
             worker_id,
             self._death_detection_pipe,
-            self._hooks['new_worker'],
+            self._hooks["new_worker"],
             self._graceful_shutdown_timeout,
-            fds_to_close=fds)
+            fds_to_close=fds,
+        )
 
         self._running_services[service_id][p] = worker_id
 
-    def _stop_worker(self, service_id, worker_id):
+    def _stop_worker(self, service_id, worker_id) -> None:
         for process, _id in self._running_services[service_id].items():
             if _id == worker_id:
-                # FIXME(sileht): We should use CTRL_BREAK_EVENT on windows
+                # NOTE(sileht): We should use CTRL_BREAK_EVENT on windows
                 # when CREATE_NEW_PROCESS_GROUP will be set on child process
                 process.terminate()
 
     @staticmethod
-    def _systemd_notify_once():
+    def _systemd_notify_once() -> None:
         """Send notification once to Systemd that service is ready.
 
         Systemd sets NOTIFY_SOCKET environment variable with the name of the
@@ -416,16 +441,16 @@ class ServiceManager(_utils.SignalManager):
         notification is sent only once.
         """
 
-        notify_socket = os.getenv('NOTIFY_SOCKET')
+        notify_socket = os.getenv("NOTIFY_SOCKET")
         if notify_socket:
-            if notify_socket.startswith('@'):
+            if notify_socket.startswith("@"):
                 # abstract namespace socket
-                notify_socket = '\0%s' % notify_socket[1:]
+                notify_socket = f"\0{notify_socket[1:]}"
             sock = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
             with contextlib.closing(sock):
                 try:
                     sock.connect(notify_socket)
-                    sock.sendall(b'READY=1')
-                    del os.environ['NOTIFY_SOCKET']
-                except EnvironmentError:
+                    sock.sendall(b"READY=1")
+                    del os.environ["NOTIFY_SOCKET"]
+                except OSError:
                     LOG.debug("Systemd notification failed", exc_info=True)

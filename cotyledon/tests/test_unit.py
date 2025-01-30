@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
 # a copy of the License at
@@ -12,7 +10,9 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import mock
+from unittest import mock
+
+import pytest
 
 import cotyledon
 from cotyledon.tests import base
@@ -23,14 +23,14 @@ class FakeService(cotyledon.Service):
 
 
 class SomeTest(base.TestCase):
-    def setUp(self):
-        super(SomeTest, self).setUp()
+    def setUp(self) -> None:
+        super().setUp()
         cotyledon.ServiceManager._process_runner_already_created = False
 
-    def test_forking_slowdown(self):
+    def test_forking_slowdown(self) -> None:  # noqa: PLR6301
         sm = cotyledon.ServiceManager()
         sm.add(FakeService, workers=3)
-        with mock.patch('time.sleep') as sleep:
+        with mock.patch("time.sleep") as sleep:
             sm._slowdown_respawn_if_needed()
             sm._slowdown_respawn_if_needed()
             sm._slowdown_respawn_if_needed()
@@ -38,38 +38,50 @@ class SomeTest(base.TestCase):
             sm._slowdown_respawn_if_needed()
             sm._slowdown_respawn_if_needed()
             sm._slowdown_respawn_if_needed()
-            self.assertEqual(6, len(sleep.mock_calls))
+            assert len(sleep.mock_calls) == 6
 
-    def test_invalid_service(self):
+    def test_invalid_service(self) -> None:
         sm = cotyledon.ServiceManager()
 
-        self.assertRaisesMsg(
-            ValueError,
+        self.assert_raises_msg(
+            TypeError,
             "'service' must be a callable",
-            sm.add, u"foo")
-        self.assertRaisesMsg(
+            sm.add,
+            "foo",
+        )
+        self.assert_raises_msg(
             ValueError,
             "'workers' must be an int >= 1, not: None (NoneType)",
-            sm.add, FakeService, workers=None)
-        self.assertRaisesMsg(
+            sm.add,
+            FakeService,
+            workers=None,
+        )
+        self.assert_raises_msg(
             ValueError,
             "'workers' must be an int >= 1, not: -2 (int)",
-            sm.add, FakeService, workers=-2)
+            sm.add,
+            FakeService,
+            workers=-2,
+        )
 
         oid = sm.add(FakeService, workers=3)
-        self.assertRaisesMsg(
+        self.assert_raises_msg(
             ValueError,
             "'workers' must be an int >= -2, not: -5 (int)",
-            sm.reconfigure, oid, workers=-5)
-        self.assertRaisesMsg(
+            sm.reconfigure,
+            oid,
+            workers=-5,
+        )
+        self.assert_raises_msg(
             ValueError,
             "notexists service id doesn't exists",
-            sm.reconfigure, "notexists", workers=-1)
+            sm.reconfigure,
+            "notexists",
+            workers=-1,
+        )
 
-    def assertRaisesMsg(self, exc, msg, func, *args, **kwargs):
-        try:
+    @staticmethod
+    def assert_raises_msg(exc, msg, func, *args, **kwargs) -> None:
+        with pytest.raises(exc) as exc_info:
             func(*args, **kwargs)
-        except exc as e:
-            self.assertEqual(msg, str(e))
-        else:
-            self.assertFalse(True, "%r have not been raised" % exc)
+        assert msg == str(exc_info.value)
