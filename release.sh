@@ -8,8 +8,8 @@ version=$1
 
 status=$(git status -sz)
 [ -z "$status" ] || false
-git checkout master
-[ -z "$SKIP_TESTS" ] && tox -epy37,py27,pep8
+git checkout main
+[ -z "$SKIP_TESTS" ] && tox -epy312,pep8
 git push
 git tag -s $version -m "Release version ${version}"
 git checkout $version
@@ -37,4 +37,4 @@ set -x
 read
 git push --tags
 twine upload -r pypi -s dist/cotyledon-${version}.tar.gz dist/cotyledon-${version}-py2.py3-none-any.whl
-git checkout master
+git checkout main
