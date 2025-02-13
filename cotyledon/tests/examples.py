@@ -16,6 +16,7 @@ import signal
 import sys
 import threading
 import time
+import typing
 
 from oslo_config import cfg
 
@@ -24,18 +25,21 @@ from cotyledon import _utils
 from cotyledon import oslo_config_glue
 
 
+if typing.TYPE_CHECKING:
+    from cotyledon import types
+
 logging.basicConfig(level=logging.DEBUG, stream=sys.stdout)
 
 LOG = logging.getLogger("cotyledon.tests.examples")
 
 # We don't want functional tests to wait for this:
-cotyledon.ServiceManager._slowdown_respawn_if_needed = lambda *args: True
+cotyledon.ServiceManager._slowdown_respawn_if_needed = lambda *args: True  # type: ignore[method-assign,assignment]
 
 
 class FullService(cotyledon.Service):
     name = "heavy"
 
-    def __init__(self, worker_id) -> None:
+    def __init__(self, worker_id: "types.WorkerId") -> None:
         super().__init__(worker_id)
         self._shutdown = threading.Event()
         LOG.error("%s init", self.name)
@@ -71,7 +75,7 @@ class BoomError(Exception):
 
 
 class BadlyCodedService(cotyledon.Service):
-    def run(self):  # noqa: PLR6301
+    def run(self) -> None:  # noqa: PLR6301
         msg = "so badly coded service"
         raise BoomError(msg)
 
@@ -142,7 +146,11 @@ def exit_on_special_child_app() -> None:
     sid = p.add(LigthService, 1)
     p.add(FullService, 2)
 
-    def on_dead_worker(service_id, worker_id, exit_code) -> None:
+    def on_dead_worker(
+        service_id: "types.ServiceId",
+        worker_id: "types.WorkerId",
+        exit_code: int,
+    ) -> None:
         # Shutdown everybody if LigthService died
         if service_id == sid:
             p.shutdown()

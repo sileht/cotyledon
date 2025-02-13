@@ -15,7 +15,6 @@ classifiers = [
    "Operating System :: POSIX :: Linux",
    "Programming Language :: Python",
    "Programming Language :: Python :: 3",
-   "Programming Language :: Python :: 3.9",
    "Programming Language :: Python :: 3.10",
    "Programming Language :: Python :: 3.11",
    "Programming Language :: Python :: 3.12",
@@ -25,7 +24,8 @@ license = "Apache-2.0"
 dynamic = ["version"]
 requires-python = ">= 3.9"
 dependencies = [
-  "setproctitle; sys_platform != 'win32'"
+  "setproctitle; sys_platform != 'win32'",
+  "typing_extensions",
 ]
 [project.optional-dependencies]
 test = [
@@ -50,6 +50,9 @@ doc = [
 
 [tool.setuptools_scm]
 
+[tool.setuptools.package-data]
+cotyledon = ["py.typed"]
+
 [tool.ruff]
 line-length = 88
 indent-width = 4
@@ -66,7 +69,7 @@ select = [
     "N",
     "UP",
     "YTT",
-    # "ANN", # mypy
+    "ANN",
     "ASYNC",
     "S",
     "BLE",
@@ -150,3 +153,27 @@ known-first-party = ["cotyledon"]
 
 [tool.ruff.lint.flake8-tidy-imports]
 ban-relative-imports = "all"
+
+[tool.ruff.lint.flake8-pytest-style]
+parametrize-values-type = "list"
+parametrize-values-row-type = "tuple"
+
+[tool.ruff.lint.flake8-type-checking]
+strict = true
+quote-annotations = true
+
+[tool.mypy]
+strict = true
+warn_unreachable = true
+exclude = [
+    ".venv",
+    "doc",
+]
+files = ["cotyledon"]
+show_error_codes = true
+
+[[tool.mypy.overrides]]
+module = [
+    "oslo_config.*"
+]
+ignore_missing_imports = true

@@ -14,11 +14,20 @@ import copy
 import functools
 import logging
 import os
+import typing
 
 from oslo_config import cfg
 
 
+if typing.TYPE_CHECKING:
+    from cotyledon import Service
+    from cotyledon import ServiceManager
+    from cotyledon import types
+
+
 LOG = logging.getLogger(__name__)
+
+ReloadMethod: typing.TypeAlias = typing.Literal["reload", "mutate"]
 
 service_opts = [
     cfg.BoolOpt(
@@ -38,31 +47,40 @@ service_opts = [
     ),
 ]
 
+OsloConfigT: typing.TypeAlias = typing.Any
 
-def _load_service_manager_options(service_manager, conf) -> None:
-    service_manager.graceful_shutdown_timeout = conf.graceful_shutdown_timeout
+
+def _load_service_manager_options(
+    service_manager: "ServiceManager",
+    conf: OsloConfigT,
+) -> None:
+    service_manager._graceful_shutdown_timeout = conf.graceful_shutdown_timeout  # noqa: SLF001
     if conf.log_options:
         LOG.debug("Full set of CONF:")
         conf.log_opt_values(LOG, logging.DEBUG)
 
 
-def _load_service_options(service, conf) -> None:
-    service.graceful_shutdown_timeout = conf.graceful_shutdown_timeout
-
+def _load_service_options(service: "Service", conf: OsloConfigT) -> None:
     if conf.log_options:
         LOG.debug("Full set of CONF:")
         conf.log_opt_values(LOG, logging.DEBUG)
 
 
-def _configfile_reload(conf, reload_method) -> None:
+def _configfile_reload(conf: OsloConfigT, reload_method: ReloadMethod) -> None:
     if reload_method == "reload":
         conf.reload_config_files()
     elif reload_method == "mutate":
         conf.mutate_config_files()
 
 
-def _new_worker_hook(conf, reload_method, service_id, worker_id, service) -> None:
-    def _service_reload(service) -> None:
+def _new_worker_hook(
+    conf: OsloConfigT,
+    reload_method: ReloadMethod,
+    service_id: "types.ServiceId",
+    worker_id: "types.WorkerId",
+    service: "Service",
+) -> None:
+    def _service_reload(service: "Service") -> None:
         _configfile_reload(conf, reload_method)
         _load_service_options(service, conf)
 
@@ -70,7 +88,11 @@ def _new_worker_hook(conf, reload_method, service_id, worker_id, service) -> Non
     _load_service_options(service, conf)
 
 
-def setup(service_manager, conf, reload_method="reload") -> None:
+def setup(
+    service_manager: "ServiceManager",
+    conf: OsloConfigT,
+    reload_method: ReloadMethod = "reload",
+) -> None:
     """Load services configuration from oslo config object.
 
     It reads ServiceManager and Service configuration options from an
@@ -112,6 +134,6 @@ def setup(service_manager, conf, reload_method="reload") -> None:
     )
 
 
-def list_opts():
+def list_opts() -> list[typing.Any]:
     """Entry point for oslo-config-generator."""
     return [(None, copy.deepcopy(service_opts))]

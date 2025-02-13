@@ -10,6 +10,8 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+from __future__ import annotations
+
 import collections
 import concurrent.futures
 import contextlib
@@ -26,14 +28,40 @@ import uuid
 
 from cotyledon import _service
 from cotyledon import _utils
+from cotyledon import types as t
 
+
+if typing.TYPE_CHECKING:
+    import types
 
 LOG = logging.getLogger(__name__)
 
+P = typing.ParamSpec("P")
+T = typing.TypeVar("T")
+CallableT = typing.Callable[P, T]
+
 
 class WorkerInfo(typing.NamedTuple):
-    worker_id: int
-    started_event: multiprocessing.Event
+    worker_id: t.WorkerId
+    started_event: multiprocessing.synchronize.Event
+
+
+ProcessInfo = typing.NewType("ProcessInfo", dict[multiprocessing.Process, WorkerInfo])
+RunningServices = typing.NewType("RunningServices", dict[t.ServiceId, ProcessInfo])
+
+OnTerminateHook: typing.TypeAlias = typing.Callable[[], None]
+OnReloadHook: typing.TypeAlias = typing.Callable[[], None]
+OnDeadWorkerHook: typing.TypeAlias = typing.Callable[
+    [t.ServiceId, t.WorkerId, int],
+    None,
+]
+
+
+class Hooks(typing.TypedDict):
+    terminate: list[OnTerminateHook]
+    reload: list[OnReloadHook]
+    new_worker: list[_service.OnNewWorkerHook]
+    dead_worker: list[OnDeadWorkerHook]
 
 
 class ServiceManager(_utils.SignalManager):
@@ -91,7 +119,11 @@ class ServiceManager(_utils.SignalManager):
 
     _process_runner_already_created = False
 
-    def __init__(self, wait_interval=0.01, graceful_shutdown_timeout=60) -> None:
+    def __init__(
+        self,
+        wait_interval: float = 0.01,
+        graceful_shutdown_timeout: int = 60,
+    ) -> None:
         """Creates the ServiceManager object
 
         :param wait_interval: time between each new process spawn
@@ -106,11 +138,14 @@ class ServiceManager(_utils.SignalManager):
         super().__init__()
 
         # We use OrderedDict to start services in adding order
-        self._services = collections.OrderedDict()
-        self._running_services = collections.defaultdict(dict)
-        self._forktimes = []
-        self._graceful_shutdown_timeout = graceful_shutdown_timeout
-        self._wait_interval = wait_interval
+        self._services: dict[
+            t.ServiceId,
+            _service.ServiceConfig[typing.Any, typing.Any],
+        ] = collections.OrderedDict()
+        self._running_services: RunningServices = collections.defaultdict(dict)  # type: ignore[assignment]
+        self._forktimes: list[float] = []
+        self._graceful_shutdown_timeout: int = graceful_shutdown_timeout
+        self._wait_interval: float = wait_interval
 
         self._dead = threading.Event()
         # NOTE(sileht): Set it on startup, so first iteration
@@ -118,16 +153,16 @@ class ServiceManager(_utils.SignalManager):
         self._got_sig_chld = threading.Event()
         self._got_sig_chld.set()
 
-        self._child_supervisor = None
+        self._child_supervisor: threading.Thread | None = None
 
-        self._hooks = {
+        self._hooks: Hooks = {
             "terminate": [],
             "reload": [],
             "new_worker": [],
             "dead_worker": [],
         }
 
-        _utils.setproctitle(
+        _utils.set_process_title(
             "{}: master process [{}]".format(
                 _utils.get_process_name(),
                 " ".join(sys.argv),
@@ -145,10 +180,10 @@ class ServiceManager(_utils.SignalManager):
 
     def register_hooks(
         self,
-        on_terminate=None,
-        on_reload=None,
-        on_new_worker=None,
-        on_dead_worker=None,
+        on_terminate: OnTerminateHook | None = None,
+        on_reload: OnReloadHook | None = None,
+        on_new_worker: _service.OnNewWorkerHook | None = None,
+        on_dead_worker: OnDeadWorkerHook | None = None,
     ) -> None:
         """Register hook methods
 
@@ -184,10 +219,51 @@ class ServiceManager(_utils.SignalManager):
             _utils.check_callable(on_dead_worker, "on_dead_worker")
             self._hooks["dead_worker"].append(on_dead_worker)
 
-    def _run_hooks(self, name, *args, **kwargs) -> None:
+    @typing.overload
+    def _run_hooks(
+        self,
+        name: typing.Literal["dead_worker"],
+        service_id: t.ServiceId,
+        worker_id: t.WorkerId,
+        exit_code: int,
+    ) -> None: ...
+
+    @typing.overload
+    def _run_hooks(
+        self,
+        name: typing.Literal["new_worker"],
+        service_id: t.ServiceId,
+        worker_id: t.WorkerId,
+        service: _service.Service,
+    ) -> None: ...
+
+    @typing.overload
+    def _run_hooks(
+        self,
+        name: typing.Literal["reload"],
+    ) -> None: ...
+
+    @typing.overload
+    def _run_hooks(
+        self,
+        name: typing.Literal["terminate"],
+    ) -> None: ...
+
+    def _run_hooks(
+        self,
+        name: typing.Literal["terminate", "reload", "new_worker", "dead_worker"],
+        *args: typing.Any,
+        **kwargs: typing.Any,
+    ) -> None:
         _utils.run_hooks(name, self._hooks[name], *args, **kwargs)
 
-    def add(self, service, workers=1, args=None, kwargs=None):
+    def add(
+        self,
+        service: type[_service.Service],
+        workers: int = 1,
+        args: _service.ServiceArgsT | None = None,
+        kwargs: _service.ServiceKwArgsT | None = None,
+    ) -> t.ServiceId:
         """Add a new service to the ServiceManager
 
         :param service: callable that return an instance of :py:class:`Service`
@@ -204,7 +280,7 @@ class ServiceManager(_utils.SignalManager):
         """
         _utils.check_callable(service, "service")
         _utils.check_workers(workers, 1)
-        service_id = uuid.uuid4()
+        service_id = t.ServiceId(uuid.uuid4())
         self._services[service_id] = _service.ServiceConfig(
             service_id,
             service,
@@ -214,7 +290,7 @@ class ServiceManager(_utils.SignalManager):
         )
         return service_id
 
-    def reconfigure(self, service_id, workers) -> None:
+    def reconfigure(self, service_id: t.ServiceId, workers: int) -> None:
         """Reconfigure a service registered in ServiceManager
 
         :param service_id: the service id
@@ -262,7 +338,7 @@ class ServiceManager(_utils.SignalManager):
 
             self._adjust_workers()
 
-    def _on_signal_received(self, sig) -> None:
+    def _on_signal_received(self, sig: int) -> None:
         if sig == _utils.SIGALRM:
             self._alarm()
         elif sig == signal.SIGINT:
@@ -313,7 +389,9 @@ class ServiceManager(_utils.SignalManager):
         # NOTE(sileht): Stop the child supervisor
         self._dead.set()
         self._got_sig_chld.set()
-        self._child_supervisor.join()
+
+        if self._child_supervisor is not None:
+            self._child_supervisor.join()
 
         # NOTE(sileht): During startup if we receive SIGTERM, python
         # multiprocess may fork the process after we send the killpg(0)
@@ -347,7 +425,7 @@ class ServiceManager(_utils.SignalManager):
         sys.exit(0)
 
     @property
-    def _child_processes(self):
+    def _child_processes(self) -> list[multiprocessing.Process]:
         return [
             process
             for processes in self._running_services.values()
@@ -359,18 +437,20 @@ class ServiceManager(_utils.SignalManager):
             running_workers = len(self._running_services[service_id])
             if running_workers < conf.workers:
                 for worker_id in range(running_workers, conf.workers):
-                    self._start_worker(service_id, worker_id)
+                    self._start_worker(service_id, t.WorkerId(worker_id))
             elif running_workers > conf.workers:
                 for worker_id in range(conf.workers, running_workers):
-                    self._stop_worker(service_id, worker_id)
+                    self._stop_worker(service_id, t.WorkerId(worker_id))
 
-    def _get_last_worker_died(self):
+    def _get_last_worker_died(self) -> tuple[t.ServiceId, t.WorkerId] | None:
         """Return the last died worker information or None"""
         for service_id in list(self._running_services.keys()):
             # We copy the list to clean the orignal one
             processes = list(self._running_services[service_id].items())
             for process, worker_info in processes:
                 if not process.is_alive():
+                    if process.exitcode is None:
+                        raise RuntimeError("Dead process without exitcode")  # noqa: TRY003, EM101
                     self._run_hooks(
                         "dead_worker",
                         service_id,
@@ -394,9 +474,9 @@ class ServiceManager(_utils.SignalManager):
 
     @staticmethod
     def _fast_exit(
-        signo=None,
-        frame=None,
-        reason="Caught SIGINT signal, instantaneous exiting",
+        signo: int | None = None,
+        frame: types.FrameType | None = None,
+        reason: str = "Caught SIGINT signal, instantaneous exiting",
     ) -> None:
         if os.name == "posix":
             signal.signal(signal.SIGINT, signal.SIG_IGN)
@@ -427,7 +507,7 @@ class ServiceManager(_utils.SignalManager):
             time.sleep(self._wait_interval)
         self._forktimes.append(time.time())
 
-    def _start_worker(self, service_id, worker_id) -> None:
+    def _start_worker(self, service_id: t.ServiceId, worker_id: t.WorkerId) -> None:
         self._slowdown_respawn_if_needed()
 
         started_event = multiprocessing.Event()
@@ -446,7 +526,7 @@ class ServiceManager(_utils.SignalManager):
 
         self._running_services[service_id][p] = WorkerInfo(worker_id, started_event)
 
-    def _stop_worker(self, service_id, worker_id) -> None:
+    def _stop_worker(self, service_id: t.ServiceId, worker_id: t.WorkerId) -> None:
         for process, worker_info in self._running_services[service_id].items():
             if worker_info.worker_id == worker_id:
                 # NOTE(sileht): We should use CTRL_BREAK_EVENT on windows

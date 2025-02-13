@@ -9,20 +9,26 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
+from __future__ import annotations
 
+import typing
+from unittest import TestCase
 from unittest import mock
 
 import pytest
 
 import cotyledon
-from cotyledon.tests import base
+
+
+P = typing.ParamSpec("P")
+R = typing.TypeVar("R")
 
 
 class FakeService(cotyledon.Service):
     pass
 
 
-class SomeTest(base.TestCase):
+class SomeTest(TestCase):
     def setUp(self) -> None:
         super().setUp()
         cotyledon.ServiceManager._process_runner_already_created = False
@@ -47,14 +53,14 @@ class SomeTest(base.TestCase):
             TypeError,
             "'service' must be a callable",
             sm.add,
-            "foo",
+            "foo",  # type: ignore[arg-type]
         )
         self.assert_raises_msg(
             ValueError,
             "'workers' must be an int >= 1, not: None (NoneType)",
             sm.add,
             FakeService,
-            workers=None,
+            workers=None,  # type: ignore[arg-type]
         )
         self.assert_raises_msg(
             ValueError,
@@ -76,12 +82,18 @@ class SomeTest(base.TestCase):
             ValueError,
             "notexists service id doesn't exists",
             sm.reconfigure,
-            "notexists",
+            "notexists",  # type: ignore[arg-type]
             workers=-1,
         )
 
     @staticmethod
-    def assert_raises_msg(exc, msg, func, *args, **kwargs) -> None:
+    def assert_raises_msg(
+        exc: type[Exception] | tuple[type[Exception], ...],
+        msg: str,
+        func: typing.Callable[P, R],
+        *args: P.args,
+        **kwargs: P.kwargs,
+    ) -> None:
         with pytest.raises(exc) as exc_info:
             func(*args, **kwargs)
         assert msg == str(exc_info.value)

@@ -17,8 +17,6 @@ jobs:
     strategy:
       matrix: 
         include:
-          - version: "3.9"
-            target: py39
           - version: "3.10"
             target: py310
           - version: "3.11"
@@ -29,6 +27,8 @@ jobs:
             target: py313
           - version: "3.13"
             target: pep8
+          - version: "3.10"
+            target: mypy
     steps:
       - name: Checkout 🛎️
         uses: actions/checkout@v4

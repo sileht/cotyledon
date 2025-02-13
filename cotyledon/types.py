@@ -1,6 +1,3 @@
-# Copyright 2010-2011 OpenStack Foundation
-# Copyright (c) 2013 Hewlett-Packard Development Company, L.P.
-#
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
 # a copy of the License at
@@ -13,8 +10,11 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-from unittest import TestCase
+from __future__ import annotations
+
+import typing
+import uuid
 
 
-class TestCase(TestCase):
-    """Test case base class for all unit tests."""
+ServiceId = typing.NewType("ServiceId", uuid.UUID)
+WorkerId = typing.NewType("WorkerId", int)

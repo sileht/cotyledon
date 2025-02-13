@@ -10,21 +10,23 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+from __future__ import annotations
+
 import os
 import re
 import signal
 import subprocess
 import threading
 import time
+import typing
 import unittest
 
 from cotyledon import oslo_config_glue
-from cotyledon.tests import base
 
 
 if os.name == "posix":
 
-    def pid_exists(pid):
+    def pid_exists(pid: int) -> bool:
         """Check whether pid exists in the current process table."""
         import errno  # noqa: PLC0415
 
@@ -38,10 +40,10 @@ if os.name == "posix":
             return True
 else:
 
-    def pid_exists(pid) -> bool:
+    def pid_exists(pid: int) -> bool:
         import ctypes  # noqa: PLC0415
 
-        kernel32 = ctypes.windll.kernel32
+        kernel32 = ctypes.windll.kernel32  # type: ignore[attr-defined]
         synchronize = 0x100000
 
         process = kernel32.OpenProcess(synchronize, 0, pid)
@@ -51,26 +53,22 @@ else:
         return False
 
 
-class Base(base.TestCase):
+class Base(unittest.TestCase):
+    name: typing.ClassVar[str]
+
     def setUp(self) -> None:
         super().setUp()
 
-        self.lines = []
+        self.lines: list[bytes] = []
 
         examplepy = os.path.join(os.path.dirname(__file__), "examples.py")
-        if os.name == "posix":
-            kwargs = {
-                "preexec_fn": os.setsid,
-            }
-        else:
-            kwargs = {
-                "creationflags": subprocess.CREATE_NEW_PROCESS_GROUP,
-            }
-
         self.subp = subprocess.Popen(
             ["python", examplepy, self.name],
             stdout=subprocess.PIPE,
-            **kwargs,
+            creationflags=0
+            if os.name == "posix"
+            else subprocess.CREATE_NEW_PROCESS_GROUP,  # type: ignore[attr-defined]
+            preexec_fn=os.setsid if os.name == "posix" else None,  # noqa:  PLW1509
         )
 
         self.t = threading.Thread(target=self.readlog)
@@ -78,6 +76,8 @@ class Base(base.TestCase):
         self.t.start()
 
     def readlog(self) -> None:
+        if self.subp.stdout is None:
+            raise RuntimeError("Unexpected subprocess setup")  # noqa: EM101,TRY003
         while True:
             try:
                 line = self.subp.stdout.readline().strip()
@@ -98,7 +98,7 @@ class Base(base.TestCase):
             self.subp.kill()
         super().tearDown()
 
-    def get_lines(self, number=None):
+    def get_lines(self, number: int | None = None) -> list[bytes]:
         if number is not None:
             while len(self.lines) < number:
                 time.sleep(0.1)
@@ -110,7 +110,7 @@ class Base(base.TestCase):
         return self.lines
 
     @staticmethod
-    def hide_pids(lines):
+    def hide_pids(lines: list[bytes]) -> list[bytes]:
         return [
             re.sub(
                 rb"Child \d+",
@@ -121,7 +121,7 @@ class Base(base.TestCase):
         ]
 
     @staticmethod
-    def get_pid(line):
+    def get_pid(line: bytes) -> int:
         try:
             return int(line.split()[-1][1:-1])
         except Exception as exc:
@@ -156,7 +156,7 @@ class TestCotyledon(Base):
         assert pid_exists(self.pid_heavy_1)
         assert pid_exists(self.pid_heavy_2)
 
-    def assert_everything_is_dead(self, status=0) -> None:
+    def assert_everything_is_dead(self, status: int = 0) -> None:
         assert status == self.subp.poll()
         assert not pid_exists(self.subp.pid)
         assert not pid_exists(self.pid_light_1)
@@ -349,7 +349,7 @@ class TestBuggyCotyledon(Base):
         assert not pid_exists(self.subp.pid)
         assert not pid_exists(childpid)
         lines = self.hide_pids(self.get_lines())
-        assert "ERROR:cotyledon.tests.examples:time.sleep done" not in lines
+        assert b"ERROR:cotyledon.tests.examples:time.sleep done" not in lines
         assert lines[-2:] == [
             b"INFO:cotyledon._service:Graceful shutdown timeout (1) exceeded, exiting buggy(0) [XXXX] now.",
             b"DEBUG:cotyledon._service_manager:Shutdown finish",
@@ -365,7 +365,7 @@ class TestBuggyCotyledon(Base):
         assert not pid_exists(self.subp.pid)
         assert not pid_exists(childpid)
         lines = self.hide_pids(self.get_lines())
-        assert "ERROR:cotyledon.tests.examples:time.sleep done" not in lines
+        assert b"ERROR:cotyledon.tests.examples:time.sleep done" not in lines
         assert lines[-3:] == [
             b"INFO:cotyledon._service:Parent process has died unexpectedly, buggy(0) [XXXX] exiting",
             b"INFO:cotyledon._service:Caught SIGTERM signal, graceful exiting of service buggy(0) [XXXX]",
