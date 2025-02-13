@@ -25,7 +25,9 @@ jobs:
             target: py311
           - version: "3.12"
             target: py312
-          - version: "3.12"
+          - version: "3.13"
+            target: py313
+          - version: "3.13"
             target: pep8
     steps:
       - name: Checkout 🛎️
