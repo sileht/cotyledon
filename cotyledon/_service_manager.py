@@ -408,8 +408,6 @@ class ServiceManager(_utils.SignalManager):
     def _start_worker(self, service_id, worker_id) -> None:
         self._slowdown_respawn_if_needed()
 
-        fds = [self.signal_pipe_w, self.signal_pipe_r] if os.name == "posix" else []
-
         # Create and run a new service
         p = _utils.spawn_process(
             _service.ServiceWorker.create_and_wait,
@@ -419,7 +417,6 @@ class ServiceManager(_utils.SignalManager):
             self._death_detection_pipe,
             self._hooks["new_worker"],
             self._graceful_shutdown_timeout,
-            fds_to_close=fds,
         )
 
         self._running_services[service_id][p] = worker_id

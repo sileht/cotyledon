@@ -21,7 +21,6 @@ import signal
 import sys
 import threading
 import time
-import traceback
 
 
 if os.name == "posix":
@@ -60,20 +59,9 @@ def check_callable(thing, name) -> None:
         raise TypeError(msg)
 
 
-def _bootstrap_process(target, *args, **kwargs) -> None:
-    if "fds_to_close" in kwargs:
-        for fd in kwargs["fds_to_close"]:
-            try:
-                os.close(fd)
-            except OSError:
-                traceback.print_exc()
-        del kwargs["fds_to_close"]
-    target(*args, **kwargs)
-
-
-def spawn_process(*args, **kwargs):
+def spawn_process(target, *args, **kwargs):
     p = multiprocessing.Process(
-        target=_bootstrap_process,
+        target=target,
         args=args,
         kwargs=kwargs,
     )
@@ -130,6 +118,8 @@ class SignalManager:
             self.signal_pipe_r, self.signal_pipe_w = os.pipe()
             self._set_nonblock(self.signal_pipe_r)
             self._set_nonblock(self.signal_pipe_w)
+            self._set_autoclose(self.signal_pipe_r)
+            self._set_autoclose(self.signal_pipe_w)
             signal.set_wakeup_fd(self.signal_pipe_w)
 
         self._signals_received = collections.deque()
@@ -154,6 +144,11 @@ class SignalManager:
         flags = fcntl.fcntl(fd, fcntl.F_GETFL, 0)
         flags |= os.O_NONBLOCK
         fcntl.fcntl(fd, fcntl.F_SETFL, flags)
+
+    @staticmethod
+    def _set_autoclose(fd) -> None:
+        flags = fcntl.fcntl(fd, fcntl.F_GETFD)
+        fcntl.fcntl(fd, fcntl.F_SETFD, flags | fcntl.FD_CLOEXEC)
 
     def _signal_catcher(self, sig, frame) -> None:
         # NOTE(sileht): This is useful only for python < 3.5
