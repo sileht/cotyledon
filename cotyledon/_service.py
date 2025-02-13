@@ -158,8 +158,9 @@ class ServiceWorker(_utils.SignalManager):
     """
 
     @classmethod
-    def create_and_wait(cls, *args, **kwargs) -> None:
+    def create_and_wait(cls, started_event, *args, **kwargs) -> None:
         sw = cls(*args, **kwargs)
+        started_event.set()
         sw.wait_forever()
 
     def __init__(  # noqa: PLR0917, PLR0913

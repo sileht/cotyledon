@@ -80,12 +80,18 @@ class Base(base.TestCase):
     def readlog(self) -> None:
         while True:
             try:
-                line = self.subp.stdout.readline()
+                line = self.subp.stdout.readline().strip()
             except OSError:
                 return
             if not line:
                 continue
-            self.lines.append(line.strip())
+            # Keep only logger message
+            if b":cotyledon." not in line:
+                print(b"?? " + line)  # noqa: T201
+                continue
+
+            print(b"<> " + line)  # noqa: T201
+            self.lines.append(line)
 
     def tearDown(self) -> None:
         if self.subp.poll() is None:
