@@ -16,7 +16,6 @@ import signal
 import sys
 import threading
 import time
-from typing import Never
 
 from oslo_config import cfg
 
@@ -72,7 +71,7 @@ class BoomError(Exception):
 
 
 class BadlyCodedService(cotyledon.Service):
-    def run(self) -> Never:  # noqa: PLR6301
+    def run(self):  # noqa: PLR6301
         msg = "so badly coded service"
         raise BoomError(msg)
 
