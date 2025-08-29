@@ -32,7 +32,7 @@ LOG = logging.getLogger(__name__)
 _SIGNAL_TO_NAME = {
     getattr(signal, name): name
     for name in dir(signal)
-    if name.startswith("SIG") and name not in {"SIG_DFL", "SIG_IGN"}
+    if name.startswith("SIG") and isinstance(getattr(signal, name), signal.Signals)
 }
 
 
