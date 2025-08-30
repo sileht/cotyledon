@@ -403,9 +403,6 @@ class ServiceManager(_utils.SignalManager):
             signal.signal(signal.SIGALRM, signal.SIG_IGN)
             LOG.info(reason)
             os.killpg(0, signal.SIGINT)
-            # Wait a bit as os._exit(1) will break the child pipe and the child
-            # will end with SIGTERM instead of SIGINT
-            time.sleep(0.1)
         else:
             # NOTE(sileht): On windows killing the master process
             # with SIGINT kill automatically children
