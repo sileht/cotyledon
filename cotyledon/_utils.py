@@ -159,9 +159,6 @@ class SignalManager:
     def _wait_forever(self) -> None:
         # Wait forever
         while True:
-            # Check if signals have been received
-            self._run_signal_handlers()
-
             # NOTE(sileht): signals can be missed when received by non-main threads
             # (https://bugs.python.org/issue5315)
             # We use signal.set_wakeup_fd + select.select() which is more reliable
@@ -178,21 +175,10 @@ class SignalManager:
                     break
 
                 for sig in signals:
-                    if sig in {SIGALRM, signal.SIGTERM, signal.SIGINT}:
-                        self._signals_received.appendleft(sig)
-                    else:
-                        self._signals_received.append(sig)
+                    self._on_signal_received(sig)
 
                 if len(signals) < SIGNAL_WAKEUP_FD_READ_SIZE:
                     break
-
-    def _run_signal_handlers(self) -> None:
-        while True:
-            try:
-                sig = self._signals_received.popleft()
-            except IndexError:
-                return
-            self._on_signal_received(sig)
 
     def _on_signal_received(self, sig) -> None:
         pass
