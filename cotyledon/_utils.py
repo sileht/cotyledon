@@ -20,7 +20,6 @@ import select
 import signal
 import sys
 import threading
-import time
 
 
 if os.name == "posix":
@@ -34,6 +33,8 @@ _SIGNAL_TO_NAME = {
     for name in dir(signal)
     if name.startswith("SIG") and isinstance(getattr(signal, name), signal.Signals)
 }
+
+SIGNAL_WAKEUP_FD_READ_SIZE = 4096
 
 
 def signal_to_name(sig):
@@ -122,6 +123,7 @@ class SignalManager:
             self._set_autoclose(self.signal_pipe_w)
             signal.set_wakeup_fd(self.signal_pipe_w)
 
+        self._pid = os.getpid()
         self._signals_received = collections.deque()
 
         if os.name == "posix":
@@ -151,53 +153,38 @@ class SignalManager:
         fcntl.fcntl(fd, fcntl.F_SETFD, flags | fcntl.FD_CLOEXEC)
 
     def _signal_catcher(self, sig, frame) -> None:
-        # NOTE(sileht): This is useful only for python < 3.5
-        # in python >= 3.5 we could read the signal number
-        # from the wakeup_fd pipe
-        if sig in {SIGALRM, signal.SIGTERM, signal.SIGINT}:
-            self._signals_received.appendleft(sig)
-        else:
-            self._signals_received.append(sig)
+        # Needed to receive the signal via set_wakeup_fd
+        pass
 
     def _wait_forever(self) -> None:
         # Wait forever
         while True:
             # Check if signals have been received
-            if os.name == "posix":
-                self._empty_signal_pipe()
             self._run_signal_handlers()
 
-            if os.name == "posix":
-                # NOTE(sileht): we cannot use threading.Event().wait(),
-                # threading.Thread().join(), or time.sleep() because signals
-                # can be missed when received by non-main threads
-                # (https://bugs.python.org/issue5315)
-                # So we use select.select() alone, we will receive EINTR or
-                # will read data from signal_r when signal is emitted and
-                # cpython calls PyErr_CheckSignals() to run signals handlers
-                # That looks perfect to ensure handlers are run and run in the
-                # main thread
-                try:
-                    select.select([self.signal_pipe_r], [], [])
-                except OSError as e:
-                    if e.args[0] != errno.EINTR:
-                        raise
-            else:
-                # NOTE(sileht): here we do only best effort
-                # and wake the loop periodically, set_wakeup_fd
-                # doesn't work on non posix platform so
-                # 1 seconds have been picked with the advice of a dice.
-                time.sleep(1)
-                # NOTE(sileht): We emulate SIGCHLD, _service_manager
-                # will just check often for dead child
-                self._signals_received.append(SIGCHLD)
+            # NOTE(sileht): signals can be missed when received by non-main threads
+            # (https://bugs.python.org/issue5315)
+            # We use signal.set_wakeup_fd + select.select() which is more reliable
+            try:
+                select.select([self.signal_pipe_r], [], [])
+            except OSError as e:
+                if e.args[0] == errno.EINTR:
+                    raise
 
-    def _empty_signal_pipe(self) -> None:
-        try:
-            while os.read(self.signal_pipe_r, 4096) == 4096:
-                pass
-        except OSError:
-            pass
+            while True:
+                try:
+                    signals = os.read(self.signal_pipe_r, SIGNAL_WAKEUP_FD_READ_SIZE)
+                except OSError:
+                    break
+
+                for sig in signals:
+                    if sig in {SIGALRM, signal.SIGTERM, signal.SIGINT}:
+                        self._signals_received.appendleft(sig)
+                    else:
+                        self._signals_received.append(sig)
+
+                if len(signals) < SIGNAL_WAKEUP_FD_READ_SIZE:
+                    break
 
     def _run_signal_handlers(self) -> None:
         while True:
