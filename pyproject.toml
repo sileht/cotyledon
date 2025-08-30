@@ -19,6 +19,7 @@ classifiers = [
    "Programming Language :: Python :: 3.10",
    "Programming Language :: Python :: 3.11",
    "Programming Language :: Python :: 3.12",
+   "Programming Language :: Python :: 3.13",
 ]
 license = "Apache-2.0"
 dynamic = ["version"]
@@ -52,7 +53,7 @@ doc = [
 [tool.ruff]
 line-length = 88
 indent-width = 4
-target-version = "py311"
+target-version = "py39"
 exclude = ["doc/source/conf.py"]
 
 [tool.ruff.lint]
