@@ -330,23 +330,29 @@ class ServiceManager(_utils.SignalManager):
         self._run_hooks("terminate")
 
         LOG.debug("Killing services with signal SIGTERM")
-        if os.name == "posix":
-            os.killpg(0, signal.SIGTERM)
+        # NOTE(sileht): we don't have killpg so we
+        # kill all known processes instead
+        # NOTE(sileht): We should use CTRL_BREAK_EVENT on windows
+        # when CREATE_NEW_PROCESS_GROUP will be set on child
+        # process
+        for process in self._child_processes:
+            process.terminate()
 
         LOG.debug("Waiting services to terminate")
-        for processes in self._running_services.values():
-            for process in processes:
-                if os.name != "posix":
-                    # NOTE(sileht): we don't have killpg so we
-                    # kill all known processes instead
-                    # NOTE(sileht): We should use CTRL_BREAK_EVENT on windows
-                    # when CREATE_NEW_PROCESS_GROUP will be set on child
-                    # process
-                    process.terminate()
-                process.join()
+        for process in self._child_processes:
+            process.join()
+            process.close()
 
         LOG.debug("Shutdown finish")
         sys.exit(0)
+
+    @property
+    def _child_processes(self):
+        return [
+            process
+            for processes in self._running_services.values()
+            for process in processes
+        ]
 
     def _adjust_workers(self) -> None:
         for service_id, conf in self._services.items():
