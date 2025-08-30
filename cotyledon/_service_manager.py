@@ -11,6 +11,7 @@
 # under the License.
 
 import collections
+import concurrent.futures
 import contextlib
 import logging
 import multiprocessing
@@ -20,6 +21,7 @@ import socket
 import sys
 import threading
 import time
+import typing
 import uuid
 
 from cotyledon import _service
@@ -27,6 +29,11 @@ from cotyledon import _utils
 
 
 LOG = logging.getLogger(__name__)
+
+
+class WorkerInfo(typing.NamedTuple):
+    worker_id: int
+    started_event: multiprocessing.Event
 
 
 class ServiceManager(_utils.SignalManager):
@@ -312,7 +319,13 @@ class ServiceManager(_utils.SignalManager):
         # multiprocess may fork the process after we send the killpg(0)
         # To workaround the issue we sleep a bit, so multiprocess can finish
         # its work.
-        time.sleep(0.1)
+        with concurrent.futures.ThreadPoolExecutor() as pool:
+            futures = [
+                pool.submit(worker_info.started_event.wait, timeout=1)
+                for processes in self._running_services.values()
+                for worker_info in processes.values()
+            ]
+            concurrent.futures.wait(futures)
 
         self._run_hooks("terminate")
 
@@ -350,12 +363,12 @@ class ServiceManager(_utils.SignalManager):
         for service_id in list(self._running_services.keys()):
             # We copy the list to clean the orignal one
             processes = list(self._running_services[service_id].items())
-            for process, worker_id in processes:
+            for process, worker_info in processes:
                 if not process.is_alive():
                     self._run_hooks(
                         "dead_worker",
                         service_id,
-                        worker_id,
+                        worker_info.worker_id,
                         process.exitcode,
                     )
                     if process.exitcode < 0:
@@ -370,7 +383,7 @@ class ServiceManager(_utils.SignalManager):
                             {"pid": process.pid, "code": process.exitcode},
                         )
                     del self._running_services[service_id][process]
-                    return service_id, worker_id
+                    return service_id, worker_info.worker_id
         return None
 
     @staticmethod
@@ -408,9 +421,12 @@ class ServiceManager(_utils.SignalManager):
     def _start_worker(self, service_id, worker_id) -> None:
         self._slowdown_respawn_if_needed()
 
+        started_event = multiprocessing.Event()
+
         # Create and run a new service
         p = _utils.spawn_process(
             _service.ServiceWorker.create_and_wait,
+            started_event,
             self._services[service_id],
             service_id,
             worker_id,
@@ -419,11 +435,11 @@ class ServiceManager(_utils.SignalManager):
             self._graceful_shutdown_timeout,
         )
 
-        self._running_services[service_id][p] = worker_id
+        self._running_services[service_id][p] = WorkerInfo(worker_id, started_event)
 
     def _stop_worker(self, service_id, worker_id) -> None:
-        for process, _id in self._running_services[service_id].items():
-            if _id == worker_id:
+        for process, worker_info in self._running_services[service_id].items():
+            if worker_info.worker_id == worker_id:
                 # NOTE(sileht): We should use CTRL_BREAK_EVENT on windows
                 # when CREATE_NEW_PROCESS_GROUP will be set on child process
                 process.terminate()
