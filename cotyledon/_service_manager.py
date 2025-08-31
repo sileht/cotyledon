@@ -38,10 +38,6 @@ if typing.TYPE_CHECKING:
 
 LOG = logging.getLogger(__name__)
 
-P = typing.ParamSpec("P")
-T = typing.TypeVar("T")
-CallableT = typing.Callable[P, T]
-
 
 class WorkerInfo(typing.NamedTuple):
     worker_id: t.WorkerId

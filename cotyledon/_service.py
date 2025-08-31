@@ -64,9 +64,6 @@ class Service:
         super().__init__()
         self.worker_id = worker_id
 
-    def _noop_hook(self, service: Service) -> None:
-        pass
-
     def terminate(self) -> None:
         """Gracefully shutdown the service
 

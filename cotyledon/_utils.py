@@ -152,8 +152,6 @@ class SignalManager:
             self._set_autoclose(self.signal_pipe_w)
             signal.set_wakeup_fd(self.signal_pipe_w)
 
-        self._pid = os.getpid()
-
         if os.name == "posix":
             signal.signal(signal.SIGCHLD, signal.SIG_DFL)
             signal.signal(signal.SIGINT, self._signal_catcher)
