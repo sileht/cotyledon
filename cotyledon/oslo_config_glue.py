@@ -84,7 +84,12 @@ def _new_worker_hook(
         _configfile_reload(conf, reload_method)
         _load_service_options(service, conf)
 
-    service._on_reload_internal_hook = _service_reload  # noqa: SLF001
+    real_reload = service.reload
+
+    def reload(self: "Service") -> None:
+        _service_reload(self)
+        real_reload()
+
     _load_service_options(service, conf)
 
 

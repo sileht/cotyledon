@@ -26,13 +26,15 @@ import time
 import typing
 import uuid
 
-from cotyledon import _service
+from cotyledon import _service_worker
 from cotyledon import _utils
 from cotyledon import types as t
 
 
 if typing.TYPE_CHECKING:
     import types
+
+    from cotyledon import _service
 
 LOG = logging.getLogger(__name__)
 
@@ -60,7 +62,7 @@ OnDeadWorkerHook: typing.TypeAlias = typing.Callable[
 class Hooks(typing.TypedDict):
     terminate: list[OnTerminateHook]
     reload: list[OnReloadHook]
-    new_worker: list[_service.OnNewWorkerHook]
+    new_worker: list[_service_worker.OnNewWorkerHook]
     dead_worker: list[OnDeadWorkerHook]
 
 
@@ -140,7 +142,7 @@ class ServiceManager(_utils.SignalManager):
         # We use OrderedDict to start services in adding order
         self._services: dict[
             t.ServiceId,
-            _service.ServiceConfig[typing.Any, typing.Any],
+            _service_worker.ServiceConfig[typing.Any, typing.Any],
         ] = collections.OrderedDict()
         self._running_services: RunningServices = collections.defaultdict(dict)  # type: ignore[assignment]
         self._forktimes: list[float] = []
@@ -182,7 +184,7 @@ class ServiceManager(_utils.SignalManager):
         self,
         on_terminate: OnTerminateHook | None = None,
         on_reload: OnReloadHook | None = None,
-        on_new_worker: _service.OnNewWorkerHook | None = None,
+        on_new_worker: _service_worker.OnNewWorkerHook | None = None,
         on_dead_worker: OnDeadWorkerHook | None = None,
     ) -> None:
         """Register hook methods
@@ -261,8 +263,8 @@ class ServiceManager(_utils.SignalManager):
         self,
         service: type[_service.Service],
         workers: int = 1,
-        args: _service.ServiceArgsT | None = None,
-        kwargs: _service.ServiceKwArgsT | None = None,
+        args: _service_worker.ServiceArgsT | None = None,
+        kwargs: _service_worker.ServiceKwArgsT | None = None,
     ) -> t.ServiceId:
         """Add a new service to the ServiceManager
 
@@ -281,7 +283,7 @@ class ServiceManager(_utils.SignalManager):
         _utils.check_callable(service, "service")
         _utils.check_workers(workers, 1)
         service_id = t.ServiceId(uuid.uuid4())
-        self._services[service_id] = _service.ServiceConfig(
+        self._services[service_id] = _service_worker.ServiceConfig(
             service_id,
             service,
             workers,
@@ -514,7 +516,7 @@ class ServiceManager(_utils.SignalManager):
 
         # Create and run a new service
         p = _utils.spawn_process(
-            _service.ServiceWorker.create_and_wait,
+            _service_worker.ServiceWorker.create_and_wait,
             started_event,
             self._services[service_id],
             service_id,
