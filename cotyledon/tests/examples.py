@@ -121,7 +121,8 @@ def oslo_app() -> None:
     conf([], project="openstack-app", validate_default_values=True, version="0.1")
 
     p = cotyledon.ServiceManager()
-    oslo_config_glue.setup(p, conf)
+    oslo_config_glue.register(conf)
+    oslo_config_glue.setup(p)
     p.add(OsloService)
     p.run()
 

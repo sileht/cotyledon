@@ -93,9 +93,15 @@ def _new_worker_hook(
     _load_service_options(service, conf)
 
 
+def register_opts(
+    conf: OsloConfigT,
+) -> None:
+    conf.register_opts(service_opts)
+
+
 def setup(
     service_manager: "ServiceManager",
-    conf: OsloConfigT,
+    conf: typing.Optional[OsloConfigT] = None,
     reload_method: ReloadMethod = "reload",
 ) -> None:
     """Load services configuration from oslo config object.
@@ -119,7 +125,10 @@ def setup(
     :param reload_method: reload or mutate the config files
     :type reload_method: str "reload/mutate"
     """
-    conf.register_opts(service_opts)
+
+    # Backward compatibility for before register_opts existed
+    if conf is not None:
+        conf.register_opts(service_opts)
 
     # Set cotyledon options from oslo config options
     _load_service_manager_options(service_manager, conf)

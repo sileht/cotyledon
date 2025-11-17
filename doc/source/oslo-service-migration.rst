@@ -121,7 +121,7 @@ Cotyledon version of the typical application:
         def __init__(self, conf)
             super(MetricdServiceManager, self).__init__()
             self.conf = conf
-            oslo_config_glue.setup(self, self.conf, restart_method='reload')
+            oslo_config_glue.setup(self, restart_method='reload')
             self.queue = multiprocessing.Queue()
 
             # the queue is explicitly passed to this child (it will live
@@ -145,6 +145,7 @@ Cotyledon version of the typical application:
 
     def main():
         conf = cfg.ConfigOpts()
+        oslo_config_glue.setup(conf)
         MyServiceManager(conf).run()
 
 
