@@ -49,6 +49,8 @@ service_opts = [
 
 OsloConfigT: typing.TypeAlias = typing.Any
 
+_CONF_REGISTERED: bool = False
+
 
 def _load_service_manager_options(
     service_manager: "ServiceManager",
@@ -119,7 +121,14 @@ def setup(
     :param reload_method: reload or mutate the config files
     :type reload_method: str "reload/mutate"
     """
-    conf.register_opts(service_opts)
+    global _CONF_REGISTERED  # noqa: PLW0603
+    if not _CONF_REGISTERED:
+        conf.register_opts(service_opts)
+        _CONF_REGISTERED = True
+
+    if service_manager._oslo_config_loaded:  # noqa: SLF001
+        msg = "Duplicated setup call for this ServiceManager is detected."
+        raise RuntimeError(msg)
 
     # Set cotyledon options from oslo config options
     _load_service_manager_options(service_manager, conf)
@@ -137,6 +146,8 @@ def setup(
         on_new_worker=functools.partial(_new_worker_hook, conf, reload_method),
         on_reload=_service_manager_reload,
     )
+
+    service_manager._oslo_config_loaded = True  # noqa: SLF001
 
 
 def list_opts() -> list[typing.Any]:

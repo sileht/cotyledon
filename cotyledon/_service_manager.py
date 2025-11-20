@@ -144,6 +144,7 @@ class ServiceManager(_utils.SignalManager):
         self._forktimes: list[float] = []
         self._graceful_shutdown_timeout: int = graceful_shutdown_timeout
         self._wait_interval: float = wait_interval
+        self._oslo_config_loaded: bool = False
 
         self._dead = threading.Event()
         # NOTE(sileht): Set it on startup, so first iteration
