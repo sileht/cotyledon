@@ -93,12 +93,22 @@ def _new_worker_hook(
     _load_service_options(service, conf)
 
 
-def setup(
+def register_opts(conf: OsloConfigT) -> None:
+    conf.register_opts(service_opts)
+
+
+def unregister_opts(conf: OsloConfigT) -> None:
+    conf.unregister_opts(service_opts)
+
+
+def link(
     service_manager: "ServiceManager",
     conf: OsloConfigT,
     reload_method: ReloadMethod = "reload",
 ) -> None:
-    """Load services configuration from oslo config object.
+    """Link services configuration and hooks from oslo config object.
+
+    oslo_config_glue.register_opts() must be called first to register required options.
 
     It reads ServiceManager and Service configuration options from an
     oslo_config.ConfigOpts() object. Also It registers a ServiceManager hook to
@@ -112,6 +122,7 @@ def setup(
     Options currently supported on ServiceManager and Service:
     * graceful_shutdown_timeout
 
+
     :param service_manager: ServiceManager instance
     :type service_manager: cotyledon.ServiceManager
     :param conf: Oslo Config object
@@ -119,7 +130,6 @@ def setup(
     :param reload_method: reload or mutate the config files
     :type reload_method: str "reload/mutate"
     """
-    conf.register_opts(service_opts)
 
     # Set cotyledon options from oslo config options
     _load_service_manager_options(service_manager, conf)
@@ -137,6 +147,25 @@ def setup(
         on_new_worker=functools.partial(_new_worker_hook, conf, reload_method),
         on_reload=_service_manager_reload,
     )
+
+
+def setup(
+    service_manager: "ServiceManager",
+    conf: OsloConfigT,
+    reload_method: ReloadMethod = "reload",
+) -> None:
+    """Setup oslo config options registry and load services configuration from them
+
+    :param service_manager: ServiceManager instance
+    :type service_manager: cotyledon.ServiceManager
+    :param conf: Oslo Config object
+    :type conf: oslo_config.ConfigOpts()
+    :param reload_method: reload or mutate the config files
+    :type reload_method: str "reload/mutate"
+    """
+
+    register_opts(conf)
+    link(service_manager, conf, reload_method)
 
 
 def list_opts() -> list[typing.Any]:
