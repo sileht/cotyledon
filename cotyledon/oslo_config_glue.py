@@ -50,20 +50,24 @@ service_opts = [
 OsloConfigT: typing.TypeAlias = typing.Any
 
 
+def _log_options(
+    conf: OsloConfigT,
+) -> None:
+    if conf.log_options:
+        LOG.debug("Full set of CONF:")
+        conf.log_opt_values(LOG, logging.DEBUG)
+
+
 def _load_service_manager_options(
     service_manager: "ServiceManager",
     conf: OsloConfigT,
 ) -> None:
     service_manager._graceful_shutdown_timeout = conf.graceful_shutdown_timeout  # noqa: SLF001
-    if conf.log_options:
-        LOG.debug("Full set of CONF:")
-        conf.log_opt_values(LOG, logging.DEBUG)
+    _log_options(conf)
 
 
 def _load_service_options(service: "Service", conf: OsloConfigT) -> None:
-    if conf.log_options:
-        LOG.debug("Full set of CONF:")
-        conf.log_opt_values(LOG, logging.DEBUG)
+    _log_options(conf)
 
 
 def _configfile_reload(conf: OsloConfigT, reload_method: ReloadMethod) -> None:
