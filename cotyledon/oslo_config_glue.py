@@ -14,6 +14,7 @@ import copy
 import functools
 import logging
 import os
+from types import MethodType
 import typing
 
 from oslo_config import cfg
@@ -89,6 +90,8 @@ def _new_worker_hook(
     def reload(self: "Service") -> None:
         _service_reload(self)
         real_reload()
+
+    service.reload = MethodType(reload, service)  # type: ignore[method-assign]
 
     _load_service_options(service, conf)
 
