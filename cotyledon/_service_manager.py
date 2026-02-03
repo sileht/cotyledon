@@ -198,6 +198,14 @@ class ServiceManager(_utils.SignalManager):
         if os.name == "posix":
             signal.signal(signal.SIGCHLD, self._signal_catcher)
 
+    def set_graceful_shutdown_timeout(self, timeout: int) -> None:
+        """Set the graceful shutdown timeout
+
+        :param timeout: timeout in seconds for graceful shutdown (0 to disable)
+        :type timeout: int
+        """
+        self._graceful_shutdown_timeout = timeout
+
     def register_hooks(
         self,
         on_terminate: OnTerminateHook | None = None,

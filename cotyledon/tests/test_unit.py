@@ -100,6 +100,17 @@ class SomeTest(TestCase):
             func(*args, **kwargs)
         assert msg == str(exc_info.value)
 
+    def test_set_graceful_shutdown_timeout(self) -> None:
+        sm = cotyledon.ServiceManager()
+        # Check default value
+        assert sm._graceful_shutdown_timeout == 60
+
+        sm.set_graceful_shutdown_timeout(120)
+        assert sm._graceful_shutdown_timeout == 120
+
+        sm.set_graceful_shutdown_timeout(0)
+        assert sm._graceful_shutdown_timeout == 0
+
 
 class TestMultiprocessing(TestCase):
     def setUp(self) -> None:
