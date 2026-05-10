@@ -25,18 +25,20 @@ jobs:
             target: py312
           - version: "3.13"
             target: py313
+          - version: "3.14"
+            target: py314
           - version: "3.13"
             target: pep8
           - version: "3.10"
             target: mypy
     steps:
       - name: Checkout 🛎️
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
       - name: Setup Python 🔧
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.version }}
 
