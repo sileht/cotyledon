@@ -88,6 +88,14 @@ class WindowService(cotyledon.Service):
     name = "window"
 
 
+class LoggingService(cotyledon.Service):
+    name = "logging"
+
+    def __init__(self, worker_id: "types.WorkerId") -> None:
+        super().__init__(worker_id)
+        LOG.error("%s init", self.name)
+
+
 def on_terminate() -> None:
     LOG.error("master terminate hook")
 
@@ -123,6 +131,21 @@ def oslo_app() -> None:
     p = cotyledon.ServiceManager()
     oslo_config_glue.setup(p, conf)
     p.add(OsloService)
+    p.run()
+
+
+def logging_configured_in_main_app() -> None:
+    # Applications usually set logging up in main(), after the imports
+    # (oslo.log's setup() for instance), not at import time. Workers must
+    # log through the handlers configured here.
+    logging.basicConfig(
+        level=logging.DEBUG,
+        stream=sys.stdout,
+        format="%(levelname)s:%(name)s:configured-in-main:%(message)s",
+        force=True,
+    )
+    p = cotyledon.ServiceManager()
+    p.add(LoggingService)
     p.run()
 
 

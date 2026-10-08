@@ -12,10 +12,12 @@
 
 from __future__ import annotations
 
+import multiprocessing
 import os
 import re
 import signal
 import subprocess
+import sys
 import threading
 import time
 import typing
@@ -127,6 +129,26 @@ class Base(unittest.TestCase):
         except Exception as exc:
             msg = f"Fail to find pid in {line.split()}"
             raise RuntimeError(msg) from exc
+
+
+@unittest.skipIf(
+    sys.platform == "darwin" or "fork" not in multiprocessing.get_all_start_methods(),
+    "workers are not forked on this platform",
+)
+class TestLoggingConfiguredInMain(Base):
+    name = "logging_configured_in_main_app"
+
+    def test_worker_logs_through_master_handlers(self) -> None:
+        deadline = time.monotonic() + 30
+        worker_lines: list[bytes] = []
+        while not worker_lines and time.monotonic() < deadline:
+            worker_lines = [
+                line for line in self.lines if b"cotyledon.tests.examples" in line
+            ]
+            time.sleep(0.1)
+        assert worker_lines == [
+            b"ERROR:cotyledon.tests.examples:configured-in-main:logging init",
+        ]
 
 
 class TestCotyledon(Base):

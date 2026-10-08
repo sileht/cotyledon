@@ -12,7 +12,9 @@
 from __future__ import annotations
 
 import multiprocessing
+import sys
 import typing
+import unittest
 from unittest import TestCase
 from unittest import mock
 
@@ -117,11 +119,22 @@ class TestMultiprocessing(TestCase):
         super().setUp()
         cotyledon.ServiceManager._process_runner_already_created = False
 
+    @unittest.skipIf(
+        sys.platform == "darwin"
+        or "fork" not in multiprocessing.get_all_start_methods(),
+        "fork is not the default start method on this platform",
+    )
     def test_multiprocessing_context_default(self) -> None:
-        """Test that ServiceManager uses multiprocessing (fork) by default"""
+        """Test that ServiceManager uses fork by default"""
         sm = cotyledon.ServiceManager()
-        # Default should be multiprocessing context (fork-compatible)
-        assert sm.mp_context == multiprocessing.get_context()
+        # Not the interpreter's default, which is forkserver from Python 3.14
+        assert sm.mp_context is multiprocessing.get_context("fork")
+
+    def test_multiprocessing_context_default_without_fork(self) -> None:
+        """Test the interpreter's default is used where fork was not"""
+        with mock.patch.object(sys, "platform", "darwin"):
+            sm = cotyledon.ServiceManager()
+        assert sm.mp_context is multiprocessing.get_context()
 
     def test_multiprocessing_context_constructor(self) -> None:
         """Test that mp_context parameter in constructor works"""

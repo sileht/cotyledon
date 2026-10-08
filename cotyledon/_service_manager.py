@@ -62,6 +62,17 @@ class Hooks(typing.TypedDict):
     dead_worker: list[OnDeadWorkerHook]
 
 
+def _default_mp_context() -> multiprocessing.context.BaseContext:
+    # Python 3.14 changed the default start method from 'fork' to
+    # 'forkserver' on POSIX platforms other than macOS. Workers started from
+    # the fork server do not inherit what the application set up in the
+    # master process after its imports, logging handlers in particular, so
+    # they silently lose them. Keep forking wherever it was the default.
+    if sys.platform != "darwin" and "fork" in multiprocessing.get_all_start_methods():
+        return multiprocessing.get_context("fork")
+    return multiprocessing.get_context()
+
+
 class ServiceManager(_utils.SignalManager):
     """Manage lifetimes of services
 
@@ -129,10 +140,13 @@ class ServiceManager(_utils.SignalManager):
         :type wait_interval: float
         :param graceful_shutdown_timeout: timeout for graceful shutdown
         :type graceful_shutdown_timeout: int
-        :param mp_context: multiprocessing context to use (defaults to 'fork')
+        :param mp_context: multiprocessing context to use (defaults to 'fork'
+                           where available, see below)
         :type mp_context: multiprocessing.context.BaseContext | None
 
-        By default, workers are spawned using the 'fork' start method.
+        By default, workers are spawned using the 'fork' start method, on
+        every platform where it was Python's default before 3.14. On macOS
+        and Windows the interpreter's default start method is used.
         To use a different start method (e.g., 'spawn' for macOS compatibility),
         pass the context via the mp_context parameter.
 
@@ -188,9 +202,8 @@ class ServiceManager(_utils.SignalManager):
         with contextlib.suppress(OSError, AttributeError):
             os.setsid()
 
-        # Default to multiprocessing (fork-compatible) if not provided
         self.mp_context: multiprocessing.context.BaseContext = (
-            mp_context or multiprocessing.get_context()
+            mp_context or _default_mp_context()
         )
 
         self._death_detection_pipe = self.mp_context.Pipe(duplex=False)
