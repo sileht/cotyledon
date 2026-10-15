@@ -85,7 +85,7 @@ class ServiceWorker(_utils.SignalManager):
     """
 
     @classmethod
-    def create_and_wait(  # noqa: PLR0913,PLR0917
+    def create_and_wait(  # ruff: ignore[too-many-arguments, too-many-positional-arguments]
         cls,
         started_event: multiprocessing.synchronize.Event,
         config: ServiceConfig[typing.Any, typing.Any],
@@ -106,7 +106,7 @@ class ServiceWorker(_utils.SignalManager):
         started_event.set()
         sw.wait_forever()
 
-    def __init__(  # noqa: PLR0917, PLR0913
+    def __init__(  # ruff: ignore[too-many-positional-arguments, too-many-arguments]
         self,
         config: ServiceConfig[typing.Any, typing.Any],
         service_id: t.ServiceId,

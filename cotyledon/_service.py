@@ -43,7 +43,7 @@ class Service:
     """Timeout after which a gracefully shutdown service will exit. zero means
     endless wait. None means same as ServiceManager that launch the service"""
 
-    def __init_subclass__(cls, **kwargs: typing.Any) -> None:  # noqa: ANN401
+    def __init_subclass__(cls, **kwargs: typing.Any) -> None:  # ruff: ignore[any-type]
         super().__init_subclass__(**kwargs)
         if cls.name is None:
             cls.name = cls.__name__
@@ -78,7 +78,7 @@ class Service:
         exit with status 1.
         """
 
-    def reload(self) -> None:  # noqa: PLR6301
+    def reload(self) -> None:  # ruff: ignore[no-self-use]
         """Reloading of the service
 
         This method will be executed when the Service receives a SIGHUP.

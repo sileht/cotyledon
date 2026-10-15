@@ -63,7 +63,7 @@ def _load_service_manager_options(
     service_manager: "ServiceManager",
     conf: OsloConfigT,
 ) -> None:
-    service_manager._graceful_shutdown_timeout = conf.graceful_shutdown_timeout  # noqa: SLF001
+    service_manager._graceful_shutdown_timeout = conf.graceful_shutdown_timeout  # ruff: ignore[private-member-access]
     _log_options(conf)
 
 

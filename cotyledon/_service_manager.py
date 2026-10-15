@@ -289,8 +289,8 @@ class ServiceManager(_utils.SignalManager):
         self,
         service: type[_service.Service],
         workers: int = 1,
-        args: typing.Any = None,  # noqa: ANN401
-        kwargs: typing.Any = None,  # noqa: ANN401
+        args: typing.Any = None,  # ruff: ignore[any-type]
+        kwargs: typing.Any = None,  # ruff: ignore[any-type]
     ) -> t.ServiceId:
         """Add a new service to the ServiceManager
 
@@ -480,7 +480,7 @@ class ServiceManager(_utils.SignalManager):
             for process, worker_info in processes:
                 if not process.is_alive():
                     if process.exitcode is None:
-                        raise RuntimeError("Dead process without exitcode")  # noqa: TRY003, EM101
+                        raise RuntimeError("Dead process without exitcode")  # ruff: ignore[raise-vanilla-args, raw-string-in-exception]
                     self._run_hooks(
                         "dead_worker",
                         service_id,

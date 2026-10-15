@@ -28,7 +28,7 @@ if os.name == "posix":
 
     def pid_exists(pid: int) -> bool:
         """Check whether pid exists in the current process table."""
-        import errno  # noqa: PLC0415
+        import errno  # ruff: ignore[import-outside-top-level]
 
         if pid < 0:
             return False
@@ -41,7 +41,7 @@ if os.name == "posix":
 else:
 
     def pid_exists(pid: int) -> bool:
-        import ctypes  # noqa: PLC0415
+        import ctypes  # ruff: ignore[import-outside-top-level]
 
         kernel32 = ctypes.windll.kernel32  # type: ignore[attr-defined]
         synchronize = 0x100000
@@ -68,7 +68,7 @@ class Base(unittest.TestCase):
             creationflags=0
             if os.name == "posix"
             else subprocess.CREATE_NEW_PROCESS_GROUP,  # type: ignore[attr-defined]
-            preexec_fn=os.setsid if os.name == "posix" else None,  # noqa:  PLW1509
+            preexec_fn=os.setsid if os.name == "posix" else None,  # ruff: ignore[subprocess-popen-preexec-fn]
         )
 
         self.t = threading.Thread(target=self.readlog)
@@ -77,7 +77,7 @@ class Base(unittest.TestCase):
 
     def readlog(self) -> None:
         if self.subp.stdout is None:
-            raise RuntimeError("Unexpected subprocess setup")  # noqa: EM101,TRY003
+            raise RuntimeError("Unexpected subprocess setup")  # ruff: ignore[raw-string-in-exception, raise-vanilla-args]
         while True:
             try:
                 line = self.subp.stdout.readline().strip()
@@ -87,10 +87,10 @@ class Base(unittest.TestCase):
                 continue
             # Keep only logger message
             if b":cotyledon." not in line:
-                print(b"?? " + line)  # noqa: T201
+                print(b"?? " + line)  # ruff: ignore[print]
                 continue
 
-            print(b"<> " + line)  # noqa: T201
+            print(b"<> " + line)  # ruff: ignore[print]
             self.lines.append(line)
 
     def tearDown(self) -> None:

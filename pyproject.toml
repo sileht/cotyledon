@@ -116,34 +116,34 @@ select = [
 
 ignore = [
     # NOTE(charly): line-length is up to the formatter
-    "E501",
+    "line-too-long",
     # NOTE(charly): `subprocess` module is possibly insecure
-    "S404",
+    "suspicious-subprocess-import",
     # NOTE(jd): likely a false positive https://github.com/PyCQA/bandit/issues/333
-    "S603",
+    "subprocess-without-shell-equals-true",
     # NOTE(charly): Starting a process with a partial executable path
-    "S607",
+    "start-process-with-partial-path",
     # NOTE(charly): Boolean-typed positional argument in function definition.
     # Interesting, but require some work.
-    "FBT001",
+    "boolean-type-hint-positional-argument",
     # NOTE(charly): Boolean default positional argument in function definition.
     # Interesting, but require some work.
-    "FBT002",
+    "boolean-default-value-positional-argument",
     # NOTE(charly): Missing issue link on the line following this TODO
-    "TD003",
+    "missing-todo-link",
     # NOTE(charly): Magic value used in comparison
-    "PLR2004",
+    "magic-value-comparison",
     # List comprehensions are most efficient in most cases now
-    "PLR1702",
+    "too-many-nested-blocks",
     # We use mock.patch.object, which automatically pass the mock as an
     # argument to the test if no `new` is specified, without needing the mock
     # itself.
-    "PT019",
+    "pytest-fixture-param-without-value",
     # We don't want to enforce the number of statements
-    "PLR0914", "PLR0912", "PLR0915",
+    "too-many-locals", "too-many-branches", "too-many-statements",
 ]
 [tool.ruff.lint.per-file-ignores]
-"cotyledon/tests/*.py" = ["S101", "SLF001", "PLR6301"]
+"cotyledon/tests/*.py" = ["assert", "private-member-access", "no-self-use"]
 
 [tool.ruff.lint.isort]
 force-single-line = true

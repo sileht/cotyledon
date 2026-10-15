@@ -68,7 +68,7 @@ def check_workers(workers: int, minimum: int) -> None:
 
 
 def check_callable(
-    thing: typing.Any,  # noqa: ANN401
+    thing: typing.Any,  # ruff: ignore[any-type]
     name: str,
 ) -> None:
     if not callable(thing):
@@ -127,7 +127,7 @@ def run_hooks(
 
 
 @contextlib.contextmanager
-def exit_on_exception() -> typing.Iterator[None]:
+def exit_on_exception() -> typing.Generator[None, None, None]:
     try:
         yield
     except SystemExit as exc:
